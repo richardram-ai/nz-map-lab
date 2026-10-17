@@ -21,7 +21,7 @@ export async function onRequestGet({ params, env }) {
   if (![z, x, y].every(Number.isInteger) || z < MIN_Z || z > MAX_Z) return new Response('Bad tile', { status: 400 });
   const r = tileRange(z);
   if (x < r.x0 || x > r.x1 || y < r.y0 || y > r.y1) return new Response('Outside the mapped area', { status: 403 });
-  if (!env.LINZ_KEY) return new Response('LINZ_KEY is not set in Cloudflare. Names this deploy can see: ' + Object.keys(env || {}).map(k => JSON.stringify(k)).join(', ') + '. Branch: ' + env.CF_PAGES_BRANCH + '. URL: ' + env.CF_PAGES_URL, { status: 503 });
+  if (!env.LINZ_KEY) return new Response('LINZ_KEY is not set in Cloudflare', { status: 503 });
 
   const sub = 'abcd'[(x + y) % 4];
   const url = `https://tiles-${sub}.data-cdn.linz.govt.nz/services;key=${env.LINZ_KEY}/tiles/v4/layer=${LAYER}/EPSG:3857/${z}/${x}/${y}.png`;
