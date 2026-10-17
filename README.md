@@ -34,4 +34,10 @@ No API keys are stored in this repository. On the hosted site, the "LINZ full-de
 
 ## Annotations
 
-Annotations drawn on the map are saved in the viewer's browser. Use "Show as GeoJSON" to copy them out and "Load pasted GeoJSON" to bring them back in.
+On the hosted site, annotations are shared through a Google Sheet:
+
+- `functions/api/annotations.js` (Cloudflare Pages Function) lets anyone read them and lets people with the editing code add or delete them. It checks every shape is inside the mapped area.
+- `google-sheet/apps-script.gs` runs on the Sheet and only answers requests that carry the private token. Deleted annotations are marked in a `deleted` column rather than removed.
+- Cloudflare secrets: `SHEET_URL` (the Apps Script web app address), `SHEET_TOKEN` (the same token as in the Apps Script) and `EDIT_CODE`.
+
+When the Sheet isn't set up, or the page is opened as a file, annotations are saved in the viewer's browser instead. "Show as GeoJSON" and "Load pasted GeoJSON" copy them out and back in.

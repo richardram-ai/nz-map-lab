@@ -92,6 +92,9 @@ button.primary{border-color:var(--accent);color:var(--accent);font-weight:600}
 .annlist .t{font-weight:600} .annlist .m{color:var(--muted);font-size:.78rem}
 .annlist .acts{display:flex;gap:4px} .annlist button{padding:1px 6px;font-size:.75rem}
 .io{display:flex;flex-direction:column;gap:6px}
+.sharedbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.8rem;color:var(--muted)}
+.sharedbar input{font:inherit;font-size:.82rem;padding:4px 6px;border:1px solid var(--rule);background:var(--bg);color:var(--ink);width:16ch}
+#a-msg:empty{display:none} #a-msg{color:var(--alert)}
 .io textarea{min-height:90px;font-family:var(--font-mono);font-size:.72rem}
 .io .row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 
@@ -190,10 +193,16 @@ footer{font-size:.78rem;color:var(--muted);border-top:1px solid var(--rule);padd
         <label>Title<input id="a-title" required maxlength="80"></label>
         <label>Category<select id="a-cat"></select></label>
         <label>Note<textarea id="a-note" rows="2" maxlength="400"></textarea></label>
+        <label id="a-by-wrap" hidden>Your name<input id="a-by" maxlength="60" autocomplete="name"></label>
+        <p class="hint" id="a-msg" role="status"></p>
         <div class="row" style="display:flex;gap:6px"><button class="primary" type="submit">Save annotation</button><button type="button" id="a-discard">Discard</button></div>
       </form>
       <ul class="annlist" id="annlist"></ul>
-      <p class="hint" id="annstore"></p>
+      <p class="hint" id="annstore" role="status"></p>
+      <div class="sharedbar no-print" id="sharedbar" hidden>
+        <label for="a-code">Editing code</label><input id="a-code" type="password" autocomplete="off" placeholder="Needed to add or delete">
+        <button type="button" id="a-refresh">Refresh</button>
+      </div>
       <div class="io">
         <div class="row">
           <button type="button" id="io-export">Show as GeoJSON</button>
@@ -523,8 +532,10 @@ function finishShape(){
 }
 form.addEventListener('submit',e=>{
   e.preventDefault(); if(!pending) return;
-  ANN.features.push({type:'Feature',properties:{id:'a'+Date.now().toString(36),title:document.getElementById('a-title').value.trim()||'Untitled',cat:cat.value,note:document.getElementById('a-note').value.trim(),added:new Date().toISOString().slice(0,10)},geometry:pending});
-  pending=null; form.hidden=true; verts=[]; setDraft(); cancelDraw(); saveAnn();
+  const byv=document.getElementById('a-by').value.trim(); try{localStorage.setItem('map-by',byv)}catch(e){}
+  const f={type:'Feature',properties:{id:'a'+Date.now().toString(36),title:document.getElementById('a-title').value.trim()||'Untitled',cat:cat.value,note:document.getElementById('a-note').value.trim(),by:byv,added:new Date().toISOString().slice(0,10)},geometry:pending};
+  const btn=form.querySelector('button[type=submit]'); btn.disabled=true;
+  addFeatures([f]).then(ok=>{ btn.disabled=false; if(!ok) return; pending=null; form.hidden=true; verts=[]; setDraft(); cancelDraw(); });
 });
 document.getElementById('a-discard').addEventListener('click',()=>{pending=null;form.hidden=true;cancelDraw()});
 
@@ -535,17 +546,17 @@ function renderAnnList(){
   ANN.features.forEach((f,i)=>{
     const p=f.properties, kind={Point:'Point',LineString:'Line',Polygon:'Area'}[f.geometry.type];
     const li=document.createElement('li');
-    li.innerHTML=`<span class="dot" style="--c:${CATS[p.cat]||'#b8334a'}"></span><span><span class="t">${esc(p.title)}</span><br><span class="m">${esc(kind)} · ${esc(p.cat)}${p.note?' · '+esc(p.note):''}</span></span><span class="acts no-print"><button type="button" data-z="${i}">Show</button><button type="button" data-d="${i}" aria-label="Delete ${esc(p.title)}">Delete</button></span>`;
+    li.innerHTML=`<span class="dot" style="--c:${CATS[p.cat]||'#b8334a'}"></span><span><span class="t">${esc(p.title)}</span><br><span class="m">${esc(kind)} · ${esc(p.cat)}${p.by?' · '+esc(p.by):''}${p.note?' · '+esc(p.note):''}</span></span><span class="acts no-print"><button type="button" data-z="${i}">Show</button><button type="button" data-d="${i}" aria-label="Delete ${esc(p.title)}">Delete</button></span>`;
     ul.appendChild(li);
   });
   if(!ANN.features.length) ul.innerHTML='<li><span></span><span class="m">No annotations yet. Use the Point, Line or Area tools under the map.</span><span></span></li>';
-  document.getElementById('annstore').textContent = stored ? 'Saved in this browser only. Use Show as GeoJSON to take a copy.' : 'This browser is not saving annotations. Copy them out as GeoJSON before you leave.';
+  document.getElementById('annstore').textContent = SHARED ? `Shared: everyone who opens this map sees these annotations. Loaded at ${lastLoad.toLocaleTimeString('en-NZ',{hour:'numeric',minute:'2-digit'})}.` : (stored ? 'Saved in this browser only. Use Show as GeoJSON to take a copy.' : 'This browser is not saving annotations. Copy them out as GeoJSON before you leave.');
 }
 document.getElementById('annlist').addEventListener('click',e=>{
   const z=e.target.dataset.z, d=e.target.dataset.d;
   if(z!==undefined){map.flyTo({center:centroid(ANN.features[+z].geometry),zoom:Math.max(map.getZoom(),16.5)})}
   if(d!==undefined){
-    if(e.target.dataset.confirm){ANN.features.splice(+d,1);saveAnn()}
+    if(e.target.dataset.confirm){e.target.disabled=true;deleteFeature(+d)}
     else{e.target.dataset.confirm='1';e.target.textContent='Confirm';setTimeout(()=>{if(e.target.isConnected){delete e.target.dataset.confirm;e.target.textContent='Delete'}},3000)}
   }
 });
@@ -557,14 +568,50 @@ function loadGeo(txt){
   try{
     const g=JSON.parse(txt); const fs=g.type==='FeatureCollection'?g.features:(g.type==='Feature'?[g]:null);
     if(!fs) throw new Error('not a Feature or FeatureCollection');
-    let n=0; fs.forEach(f=>{ if(!f.geometry||!['Point','LineString','Polygon'].includes(f.geometry.type)) return; const p=f.properties||{};
-      ANN.features.push({type:'Feature',properties:{id:p.id||('i'+Math.random().toString(36).slice(2,8)),title:p.title||p.name||'Imported',cat:CATS[p.cat]?p.cat:'Observation',note:p.note||p.description||''},geometry:f.geometry});n++});
-    saveAnn(); iomsg.textContent=`Loaded ${n} feature${n===1?'':'s'}. Points, lines and areas are supported.`;
+    const add=[]; fs.forEach(f=>{ if(!f.geometry||!['Point','LineString','Polygon'].includes(f.geometry.type)) return; const p=f.properties||{};
+      add.push({type:'Feature',properties:{id:p.id||('i'+Math.random().toString(36).slice(2,8)),title:p.title||p.name||'Imported',cat:CATS[p.cat]&&p.cat!=='Example'?p.cat:'Observation',note:p.note||p.description||'',by:p.by||''},geometry:f.geometry})});
+    if(!add.length){iomsg.textContent='No points, lines or areas found in that GeoJSON.';return}
+    addFeatures(add).then(ok=>{ if(ok) iomsg.textContent=`Loaded ${add.length} feature${add.length===1?'':'s'}${SHARED?' into the shared map':''}.`; else iomsg.textContent='Nothing was loaded. See the message above.'; });
   }catch(err){iomsg.textContent='That is not valid GeoJSON ('+err.message+'). Check it starts with { "type": "FeatureCollection".'}
 }
 document.getElementById('io-import').addEventListener('click',()=>{if(io.value.trim())loadGeo(io.value);else iomsg.textContent='Paste GeoJSON into the box first.'});
 document.getElementById('io-file').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>loadGeo(r.result);r.readAsText(f)});
+// ---------- shared annotations (Google Sheet via /api/annotations on the hosted site) ----------
+let SHARED=false, lastLoad=new Date();
+const API='/api/annotations', amsg=document.getElementById('a-msg'), codeEl=document.getElementById('a-code');
+try{codeEl.value=localStorage.getItem('map-edit-code')||'';document.getElementById('a-by').value=localStorage.getItem('map-by')||''}catch(e){}
+codeEl.addEventListener('change',()=>{try{localStorage.setItem('map-edit-code',codeEl.value.trim())}catch(e){}});
+function setShared(fc){ANN=fc;lastLoad=new Date();renderAnnList();refreshAnnSource()}
+async function loadShared(){
+  if(!/^https?:$/.test(location.protocol)) return false;
+  try{const r=await fetch(API,{cache:'no-store'}); if(!r.ok) return false; const j=await r.json(); if(j.type!=='FeatureCollection') return false;
+    SHARED=true; document.getElementById('sharedbar').hidden=false; document.getElementById('a-by-wrap').hidden=false; setShared(j); return true}
+  catch(e){return false}
+}
+async function postShared(body){
+  const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','X-Edit-Code':codeEl.value.trim()},body:JSON.stringify(body)});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok||j.error) throw new Error(j.error||('The server answered '+r.status));
+  return j;
+}
+async function addFeatures(list){
+  amsg.textContent='';
+  if(!SHARED){ANN.features.push(...list);saveAnn();return true}
+  if(!codeEl.value.trim()){amsg.textContent='Enter the editing code under the annotation list first.';codeEl.focus();return false}
+  amsg.textContent='Saving to the shared map…'; amsg.style.color='var(--muted)';
+  try{setShared(await postShared({action:'add',features:list}));amsg.textContent='';amsg.style.color='';return true}
+  catch(e){amsg.style.color='';amsg.textContent='Not saved: '+e.message;return false}
+}
+async function deleteFeature(i){
+  if(!SHARED){ANN.features.splice(i,1);saveAnn();return}
+  const store=document.getElementById('annstore');
+  if(!codeEl.value.trim()){renderAnnList();store.textContent='Enter the editing code to delete annotations.';codeEl.focus();return}
+  try{setShared(await postShared({action:'delete',id:ANN.features[i].properties.id}))}
+  catch(e){renderAnnList();store.textContent='Not deleted: '+e.message}
+}
+document.getElementById('a-refresh').addEventListener('click',loadShared);
 renderAnnList();
+loadShared();
 
 // ---------- findings ----------
 const vc={good:0,coarse:0,empty:0}; LAYERS.forEach(l=>vc[l.v]++);
