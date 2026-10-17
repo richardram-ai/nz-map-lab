@@ -1,0 +1,579 @@
+<title>Sydney Street Map Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/*__MAPLIBRE_CSS__*/
+</style>
+<style>
+/* Layout: print-first document — details block, map + layer list side by side (stacking on phones), then the findings that feed the scoping work. White page, colour carried by rules, swatches and text. */
+:root{
+  --bg:#ffffff;
+  --ink:#1b2722;
+  --muted:#5a6862;
+  --rule:#cdd7d2;
+  --soft:#f2f6f4;
+  --accent:#2c7a4b;
+  --water:#28699a;
+  --hazard:#a8661a;
+  --plan:#6a4c9c;
+  --alert:#b8334a;
+  --good:#2c7a4b; --coarse:#a8661a; --empty:#7d8883;
+  --font-body:"Aptos","Segoe UI","Helvetica Neue",Arial,sans-serif;
+  --font-display:"Aptos Display","Aptos","Segoe UI",Arial,sans-serif;
+  --font-mono:"Aptos Mono","SFMono-Regular",Consolas,"Liberation Mono",monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111715;--ink:#e2eae6;--muted:#9caba4;--rule:#33403a;--soft:#1a2320;
+  --accent:#5fb882;--water:#6aa8d6;--hazard:#d89a4c;--plan:#a68bd6;--alert:#e66a7f;
+  --good:#5fb882;--coarse:#d89a4c;--empty:#8d9a94;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111715;--ink:#e2eae6;--muted:#9caba4;--rule:#33403a;--soft:#1a2320;
+  --accent:#5fb882;--water:#6aa8d6;--hazard:#d89a4c;--plan:#a68bd6;--alert:#e66a7f;
+  --good:#5fb882;--coarse:#d89a4c;--empty:#8d9a94;color-scheme:dark}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+#layers{display:flex;flex-direction:column;gap:16px}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px 48px}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+a{color:var(--water)}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h1,h2,h3{font-family:var(--font-display);text-wrap:balance;margin:0;line-height:1.2}
+h1{font-size:2rem;font-weight:700;letter-spacing:-.01em}
+h2{font-size:1.3rem;font-weight:700;padding-bottom:6px;border-bottom:2px solid var(--accent)}
+h3{font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700}
+p{margin:0;max-width:68ch}
+.mono{font-family:var(--font-mono);font-size:.85em}
+
+/* header */
+header{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px 32px;align-items:end;padding-bottom:16px;border-bottom:1px solid var(--rule)}
+.lede{display:flex;flex-direction:column;gap:8px}
+.lede p{color:var(--muted)}
+.details{border-left:3px solid var(--accent);padding:4px 0 4px 12px;display:grid;grid-template-columns:auto auto;gap:2px 14px;font-size:.85rem}
+.details dt{color:var(--muted)} .details dd{margin:0;font-weight:600}
+
+/* main grid */
+.workspace{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;align-items:start}
+.mapcol{display:flex;flex-direction:column;gap:10px;min-width:0}
+#map{width:100%;aspect-ratio:1/1;max-height:78vh;border:1px solid var(--rule);background:#f4f5f3}
+.basebar{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;font-size:.85rem}
+.basebar label{display:flex;gap:6px;align-items:center;cursor:pointer}
+.basebar input[type=text]{font:inherit;font-size:.8rem;padding:4px 6px;border:1px solid var(--rule);background:var(--bg);color:var(--ink);width:15ch}
+.notice{font-size:.82rem;color:var(--hazard);border-left:3px solid var(--hazard);padding:2px 0 2px 10px}
+.drawbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.85rem}
+.drawbar .lbl{color:var(--muted);margin-right:4px}
+button{font:inherit;font-size:.85rem;padding:5px 11px;border:1px solid var(--rule);background:var(--bg);color:var(--ink);cursor:pointer;border-radius:3px}
+button:hover{border-color:var(--accent)}
+button.on{border-color:var(--alert);color:var(--alert);font-weight:600}
+button.primary{border-color:var(--accent);color:var(--accent);font-weight:600}
+.hint{font-size:.8rem;color:var(--muted)}
+
+/* layer panel */
+.panel{display:flex;flex-direction:column;gap:14px;min-width:0}
+.group{display:flex;flex-direction:column;gap:4px}
+.group h3{padding-bottom:3px;border-bottom:1px solid var(--rule);margin-bottom:2px}
+.lyr{display:grid;grid-template-columns:18px 16px minmax(0,1fr) auto;gap:8px;align-items:center;font-size:.86rem;padding:2px 0}
+.lyr input{margin:0}
+.lyr .sw{width:14px;height:14px;border:1.5px solid var(--sw);background:color-mix(in srgb,var(--sw) 35%,transparent)}
+.lyr .sw.pt{border-radius:50%;background:var(--sw)}
+.lyr .sw.ln{height:0;border-width:0 0 3px 0;border-radius:0;background:none}
+.lyr .n{font-variant-numeric:tabular-nums;color:var(--muted);font-size:.8rem}
+.lyr.empty{color:var(--empty)} .lyr.empty .sw{opacity:.4}
+.legend-inat{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:.75rem;color:var(--muted);padding-left:42px}
+.legend-inat span::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--c);margin-right:4px}
+
+/* annotations */
+.annform{display:flex;flex-direction:column;gap:6px;border:1px solid var(--alert);padding:10px}
+.annform label{font-size:.8rem;color:var(--muted);display:flex;flex-direction:column;gap:2px}
+.annform input,.annform select,.annform textarea,.io textarea{font:inherit;font-size:.85rem;padding:5px 7px;border:1px solid var(--rule);background:var(--bg);color:var(--ink)}
+.annlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.annlist li{display:grid;grid-template-columns:12px minmax(0,1fr) auto;gap:8px;align-items:start;font-size:.84rem;padding:4px 0;border-bottom:1px dotted var(--rule)}
+.annlist .dot{width:10px;height:10px;border-radius:50%;margin-top:5px;background:var(--c)}
+.annlist .t{font-weight:600} .annlist .m{color:var(--muted);font-size:.78rem}
+.annlist .acts{display:flex;gap:4px} .annlist button{padding:1px 6px;font-size:.75rem}
+.io{display:flex;flex-direction:column;gap:6px}
+.io textarea{min-height:90px;font-family:var(--font-mono);font-size:.72rem}
+.io .row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+
+/* findings */
+.cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+.cols > div{display:flex;flex-direction:column;gap:6px;min-width:0}
+.cols .k{font-size:1.9rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1}
+.cols .k.g{color:var(--good)} .cols .k.c{color:var(--coarse)} .cols .k.e{color:var(--empty)}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.84rem;min-width:760px}
+th{text-align:left;font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);border-bottom:2px solid var(--ink);padding:6px 8px}
+td{border-bottom:1px solid var(--rule);padding:7px 8px;vertical-align:top}
+td.num{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.chip{display:inline-block;font-size:.72rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:1px 6px;border:1.5px solid currentColor;border-radius:2px;white-space:nowrap}
+.chip.good{color:var(--good)} .chip.coarse{color:var(--coarse)} .chip.empty{color:var(--empty)}
+.lic-warn{color:var(--alert);font-weight:600}
+.gaps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 28px;margin:0;padding:0;list-style:none}
+.gaps li{border-left:3px solid var(--plan);padding-left:12px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.gaps li b{font-size:.92rem}
+.gaps li span{font-size:.86rem;color:var(--muted)}
+section{display:flex;flex-direction:column;gap:12px}
+footer{font-size:.78rem;color:var(--muted);border-top:1px solid var(--rule);padding-top:10px}
+
+.maplibregl-popup-content{font-family:var(--font-body);font-size:.82rem;color:#1b2722;padding:10px 12px;max-width:260px}
+.maplibregl-popup-content b{display:block;font-size:.9rem;margin-bottom:2px}
+.maplibregl-popup-content .src{color:#5a6862;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em}
+.maplibregl-ctrl-attrib{font-size:10px}
+
+@media (max-width:900px){
+  .workspace{grid-template-columns:minmax(0,1fr)}
+  .cols{grid-template-columns:minmax(0,1fr)}
+  .gaps{grid-template-columns:minmax(0,1fr)}
+  header{grid-template-columns:minmax(0,1fr)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@media print{
+  @page{size:A4 portrait;margin:12mm}
+  body{padding:0;font-size:10.5pt}
+  .no-print,.maplibregl-ctrl-top-right,.io,.annform{display:none!important}
+  .workspace{grid-template-columns:minmax(0,1fr) 62mm;gap:8mm}
+  #map{max-height:none;height:auto}
+  .cols{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .gaps{grid-template-columns:repeat(2,minmax(0,1fr))}
+  section{break-inside:auto} tr,.gaps li{break-inside:avoid}
+  table{min-width:0}
+  h2{break-after:avoid}
+  .pagebreak{break-before:page}
+  a{color:var(--ink);text-decoration:none}
+}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="lede">
+    <h3>Mapping project · test square</h3>
+    <h1>Sydney Street Map Lab</h1>
+    <p>A 1&nbsp;km × 1&nbsp;km square centred on 16 Sydney Street, Papaioea, Palmerston North (<span class="mono">−40.34976, 175.61954</span>). Every layer here is free public data clipped to the square, including 2024 aerial photos and 2018 LiDAR from LINZ, plus a drawing tool for adding your own notes on top. Click anything on the map to see what the data says about it.</p>
+  </div>
+  <dl class="details">
+    <dt>Document Name</dt><dd>Sydney Street Map Lab</dd>
+    <dt>Author</dt><dd>Richard Ram</dd>
+    <dt>Date</dt><dd>17.10.26</dd>
+  </dl>
+</header>
+
+<div class="workspace">
+  <div class="mapcol">
+    <div class="basebar no-print" role="radiogroup" aria-label="Base map">
+      <span class="hint">Base map:</span>
+      <label><input type="radio" name="base" id="base-aerial" value="aerial" checked> Aerial photo 2024</label>
+      <label><input type="radio" name="base" id="base-osm" value="osm"> Street map</label>
+      <label><input type="radio" name="base" id="base-ofm" value="ofm"> OpenFreeMap tiles</label>
+      <label><input type="radio" name="base" id="base-linz" value="linz"> LINZ live tiles</label>
+      <input type="text" id="linzkey" placeholder="LINZ Data Service key" aria-label="LINZ Data Service API key">
+    </div>
+    <p class="notice no-print" id="tilenote" hidden></p>
+    <canvas id="cv-aerial" hidden></canvas><canvas id="cv-elev" hidden></canvas>
+    <div id="map" role="region" aria-label="Map of the 1 km test square"></div>
+    <div class="drawbar no-print">
+      <span class="lbl">Add your own:</span>
+      <button id="d-point" type="button">Point</button>
+      <button id="d-line" type="button">Line</button>
+      <button id="d-area" type="button">Area</button>
+      <button id="d-finish" type="button" class="primary" hidden>Finish shape</button>
+      <button id="d-cancel" type="button" hidden>Cancel</button>
+      <span class="hint" id="d-hint">Pick a tool, then click the map.</span>
+    </div>
+  </div>
+
+  <aside class="panel" aria-label="Layers">
+    <div id="layers"></div>
+
+    <div class="group">
+      <h3>Your annotations</h3>
+      <form class="annform" id="annform" hidden>
+        <label>Title<input id="a-title" required maxlength="80"></label>
+        <label>Category<select id="a-cat"></select></label>
+        <label>Note<textarea id="a-note" rows="2" maxlength="400"></textarea></label>
+        <div class="row" style="display:flex;gap:6px"><button class="primary" type="submit">Save annotation</button><button type="button" id="a-discard">Discard</button></div>
+      </form>
+      <ul class="annlist" id="annlist"></ul>
+      <p class="hint" id="annstore"></p>
+      <div class="io">
+        <div class="row">
+          <button type="button" id="io-export">Show as GeoJSON</button>
+          <button type="button" id="io-copy" hidden>Copy</button>
+          <button type="button" id="io-import">Load pasted GeoJSON</button>
+          <label class="hint" style="display:flex;gap:4px;align-items:center">or file <input type="file" id="io-file" accept=".geojson,.json,application/json" style="font-size:.75rem;max-width:150px"></label>
+        </div>
+        <textarea id="io-text" aria-label="GeoJSON for annotations" placeholder="Paste GeoJSON here to load it, or press Show as GeoJSON to copy your annotations out."></textarea>
+        <p class="hint" id="io-msg"></p>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<section>
+  <h2>What the square told us</h2>
+  <div class="cols" id="tally"></div>
+</section>
+
+<section class="pagebreak">
+  <h2>Layer by layer</h2>
+  <p>How useful each dataset is at this scale, who publishes it and the terms you can reuse it under. “Coarse” means the data exists but is drawn for a region or the whole country, so a single shape covers the whole square.</p>
+  <div class="tablewrap"><table id="ltable"><thead><tr><th>Layer</th><th>Publisher</th><th>Licence</th><th style="text-align:right">In square</th><th>At 1 km</th><th>What it tells you</th></tr></thead><tbody></tbody></table></div>
+</section>
+
+<section>
+  <h2>Knowledge gaps to research</h2>
+  <ul class="gaps">
+    <li><b>Licences that block a paid offer</b><span>Most iNaturalist records are CC BY‑NC (non‑commercial). Showing them inside a paid service needs checking, or should be limited to linking out. Several Horizons layers state no licence in their metadata at all.</span></li>
+    <li><b>Your LINZ key can view but not export</b><span>The key loads aerial tiles from <a href="https://data.linz.govt.nz" target="_blank" rel="noopener">LINZ Data Service</a> (data.linz.govt.nz), but exports need the “exports:write” scope. The LiDAR here came from LINZ's open elevation store on AWS, which needs no key. Census boundaries from <a href="https://datafinder.stats.govt.nz" target="_blank" rel="noopener">Stats NZ</a> (datafinder.stats.govt.nz) still need an account.</span></li>
+    <li><b>The newest LiDAR skips the city</b><span>The 2024 regional survey does not cover central Palmerston North, so this map uses the 2018 city survey. The canopy layer is six years older than the aerial photo. Trees planted or removed since 2018 will be wrong.</span></li>
+    <li><b>Checking the canopy figure</b><span>About CANOPY% canopy over 3 m is a first estimate. Buildings missing from OpenStreetMap would count as trees, and power lines can too. Compare it with a council or university urban canopy study before quoting it.</span></li>
+    <li><b>Reading the flood model</b><span>The Horizons 200‑year layer for Palmerston North is a “rapid model” of stormwater runoff, and its depth classes are not explained in the data. Ask <a href="https://www.horizons.govt.nz" target="_blank" rel="noopener">Horizons</a> or <a href="https://www.pncc.govt.nz" target="_blank" rel="noopener">PNCC</a> how it should be shown to the public.</span></li>
+    <li><b>National layers are too coarse for streets</b><span>Land cover, soils and liquefaction each return one or two shapes for the whole square. They suit catchment‑scale groups, not a street‑scale project. Test them again at 5–10&nbsp;km.</span></li>
+    <li><b>Where the data lives is scattered</b><span>The council and regional data came from their ArcGIS Online services, not from data.govt.nz, whose catalogue blocks automated access. A list of each council's service address will be a reusable asset for the offer.</span></li>
+    <li><b>Hosting the base map</b><span>Map tiles from other sites do not load inside a Claude preview, so this page draws its own base from OpenStreetMap data. On your own Cloudflare Pages site the OpenFreeMap and LINZ options will work. That build is the next test.</span></li>
+    <li><b>Sharing annotations between people</b><span>Annotations here are saved in your browser only. An organisation will want a shared store, a Google Sheet or a small database, with a decision about who can edit.</span></li>
+    <li><b>Location privacy</b><span>iNaturalist hides the exact location of sensitive species and of observers who ask for it. Any annotation layer that records nests, threatened plants or volunteers' homes needs the same option.</span></li>
+  </ul>
+</section>
+
+<footer id="attrib"></footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.js"></script>
+<script>
+const DATA = /*__DATA__*/{};
+const IMG = /*__IMG__*/{};
+const LIDAR = /*__LIDAR__*/{};
+const CENTER=[175.6195385,-40.349756];
+const BOX=[[175.613645,-40.354261],[175.625433,-40.345252]];
+const BOXPOLY={type:"Feature",properties:{},geometry:{type:"Polygon",coordinates:[[[BOX[0][0],BOX[0][1]],[BOX[1][0],BOX[0][1]],[BOX[1][0],BOX[1][1]],[BOX[0][0],BOX[1][1]],[BOX[0][0],BOX[0][1]]]]}};
+
+const PUB={
+  osm:['OpenStreetMap contributors','https://www.openstreetmap.org/copyright','ODbL 1.0'],
+  inat:['iNaturalist NZ','https://inaturalist.nz','Per record, mostly CC BY‑NC'],
+  pncc:['Palmerston North City Council','https://www.pncc.govt.nz','CC BY 4.0'],
+  hzcc:['Horizons Regional Council','https://www.horizons.govt.nz','CC BY 4.0'],
+  hzn:['Horizons Regional Council','https://www.horizons.govt.nz','Not stated'],
+  smap:['Manaaki Whenua (via Horizons)','https://www.landcareresearch.co.nz','Not stated in service'],
+  lcdb:['Manaaki Whenua, hosted by Eagle Technology','https://www.landcareresearch.co.nz','CC BY 4.0 (LCDB)'],
+  doc:['Department of Conservation','https://www.doc.govt.nz','CC BY 4.0'],
+  linz:['Toitū Te Whenua LINZ','https://www.linz.govt.nz','CC BY 4.0'],
+};
+const INATC={Aves:'#28699a',Plantae:'#2c7a4b',Insecta:'#c47d14',Fungi:'#8a5a3c',Arachnida:'#6a4c9c',Reptilia:'#b8334a',Other:'#7d8883'};
+
+// One table drives the map, the layer list and the findings table.
+const LAYERS=[
+ {g:'Base map',id:'aerial',label:'Aerial photo 2024 (0.1 m)',kind:'image',panel:false,countText:'1 image',pub:'linz',v:'good',why:'Palmerston North urban aerial photos, flown 2024 at 10 cm per pixel. Built into the page at about 45 cm per pixel. Good enough to pick out single trees, gardens and hard surfaces.'},
+ {g:'Base map',id:'osm_green',label:'Parks and grass',kind:'fill',color:'#8fc28a',on:false,base:true,pub:'osm',v:'good',why:'Sports pitches, gardens and grass areas. Good outlines, but no names for most of them.'},
+ {g:'Base map',id:'osm_buildings',label:'Buildings',kind:'fill',color:'#b9c1bd',on:false,base:true,pub:'osm',v:'good',why:'Every building footprint in the square. Useful for context and for working out roof or hard‑surface cover.'},
+ {g:'Base map',id:'osm_roads',label:'Roads',kind:'line',color:'#9aa49f',width:3,on:false,base:true,pub:'osm',v:'good',why:'Street network with names in the popups.'},
+ {g:'Base map',id:'osm_paths',label:'Footpaths',kind:'line',color:'#b3bab6',width:1,dash:true,on:false,base:true,pub:'osm',v:'good',why:'Footpaths and walkways. Handy for planning survey walks.'},
+
+ {g:'Nature',id:'inat_obs',label:'Species sightings',kind:'circle',color:'#28699a',on:true,pub:'inat',v:'good',why:'Citizen‑science records, about two‑thirds research grade. Strongest layer for nature at street scale. Location is blurred for sensitive species.'},
+ {g:'Nature',id:'osm_trees',label:'Mapped trees',kind:'circle',color:'#3f8f56',r:3,on:true,pub:'osm',v:'coarse',why:'Individual trees someone has mapped. Patchy, and species is usually missing. A good gap for volunteers to fill.'},
+ {g:'Nature',id:'pncc_notable_trees',label:'Notable trees',kind:'circle',color:'#1d5e31',r:7,on:true,pub:'pncc',v:'good',why:'Trees protected in the District Plan, with species names.'},
+ {g:'Nature',id:'doc_land',label:'Conservation land',kind:'fill',color:'#2c7a4b',pub:'doc',v:'empty',empty:true,why:'None in the square. Four DOC areas lie within about 5 km, mainly marginal strips along the Manawatū River and Turitea Stream.'},
+ {g:'Nature',id:'osm_water',label:'Streams and drains',kind:'line',color:'#28699a',pub:'osm',v:'empty',empty:true,why:'No open waterways in the square. Water here moves through the stormwater pipes below.'},
+
+ {g:'Water and hazards',id:'hz_flood200',label:'200‑year flood model',kind:'fill',color:'#3b82c4',opacity:.45,pub:'hzcc',v:'good',why:'Modelled ponding in a 1‑in‑200‑year rain event, from the Palmerston North rapid model. Detailed, but what the classes mean is not explained.'},
+ {g:'Water and hazards',id:'pncc_storm_mains',label:'Stormwater pipes',kind:'line',color:'#28699a',width:1.5,pub:'pncc',v:'good',why:'Pipe size, material and owner. Shows where runoff goes, which matters for stream health downstream.'},
+ {g:'Water and hazards',id:'pncc_storm_catchment',label:'Stormwater catchments',kind:'outline',color:'#28699a',pub:'pncc',v:'coarse',why:'Three catchments cross the square. Useful for linking street activity to a receiving stream.'},
+ {g:'Water and hazards',id:'hz_liquefaction',label:'Liquefaction',kind:'fill',color:'#a8661a',opacity:.12,pub:'hzn',v:'coarse',why:'One polygon: “Moderate”. The data says to use it at 1:50,000 or coarser, not street scale.'},
+ {g:'Water and hazards',id:'hz_bore',label:'Groundwater bore',kind:'circle',color:'#28699a',r:6,pub:'hzn',v:'good',why:'One bore: 58 m deep, water level 4.5 m below ground. The owner’s name is in the source data and was removed here.'},
+ {g:'Water and hazards',id:'hz_water_area',label:'Water management area',kind:'outline',color:'#6a4c9c',pub:'hzn',v:'coarse',why:'One Plan surface‑water sub‑areas. Tells you which river rules and targets apply.'},
+
+ {g:'Land and soil',id:'lcdb',label:'Land cover (LCDB)',kind:'fill',color:'#7d8883',opacity:.1,pub:'lcdb',v:'coarse',why:'The whole square is one class: “Built‑up area”, unchanged since 1996. National land cover tells you nothing at this scale.'},
+ {g:'Land and soil',id:'hz_smap',label:'Soils (S‑map)',kind:'fill',color:'#8a5a3c',opacity:.12,pub:'smap',v:'coarse',why:'Three soil map units clip the edges. Most of the square is mapped as “town”, so it has no soil data.'},
+
+ {g:'Elevation and canopy (LiDAR)',id:'lidar_elev',label:'Ground height shading',kind:'image',on:false,color:'#78aa96',countText:'1 image',pub:'linz',v:'good',why:'Bare‑earth height from the 2018 Palmerston North LiDAR, 1 m grid. Ground runs from about 29 m to 35.5 m. Note the 2.7 m terrace step in the south‑east corner.'},
+ {g:'Elevation and canopy (LiDAR)',id:'lidar_contours',label:'Contours, 0.5 m',kind:'contour',on:false,color:'#7a5a2c',pub:'linz',v:'good',why:'Generated here from the LiDAR ground model. On land this flat they show which way water drains, which official 20 m topo contours cannot.'},
+ {g:'Elevation and canopy (LiDAR)',id:'lidar_canopy',label:'Tree canopy',kind:'canopy',on:false,color:'#3f8f56',pub:'linz',v:'good',why:'Derived here: surface height minus ground height, over 3 m tall, with OpenStreetMap buildings removed. About CANOPY% of the square. Built from 2018 data, so check it against the 2024 photo.'},
+ {g:'Planning and property',id:'pncc_zones',label:'District Plan zones',kind:'fill',color:'#6a4c9c',opacity:.08,outline:true,pub:'pncc',v:'good',why:'29 zone pieces. Tells you what land use is allowed where, which matters for planting or restoration proposals.'},
+ {g:'Planning and property',id:'pncc_parcels',label:'Property parcels',kind:'outline',color:'#8f7fb5',width:.5,pub:'pncc',v:'good',why:'1,722 parcels, including road parcels. Good for working out which land is council‑owned.'},
+ {g:'Planning and property',id:'pncc_heritage',label:'Heritage sites',kind:'circle',color:'#6a4c9c',r:5,pub:'pncc',v:'good',why:'Four listed heritage buildings or objects.'},
+ {g:'Planning and property',id:'pncc_playgrounds',label:'Playgrounds',kind:'circle',color:'#c47d14',r:5,pub:'pncc',v:'good',why:'Two council playgrounds. Likely spots for community events.'},
+ {g:'Planning and property',id:'pncc_cycle',label:'Cycle network',kind:'line',color:'#1f8a8a',width:2.5,pub:'pncc',v:'good',why:'Cycle lanes, including council comments such as crash‑risk notes.'},
+];
+LAYERS.forEach(L=>{L.count=L.empty?0:((DATA[L.id]||{}).features||[]).length; if(L.why)L.why=L.why.replace('CANOPY%',LIDAR.cover+'%')});
+
+// ---------- annotations store ----------
+const CATS={Observation:'#28699a',Planting:'#2c7a4b','Pest or weed':'#b8334a',Issue:'#c47d14',Example:'#7d8883'};
+const SKEY='sydney-st-map-annotations-v1';
+const EXAMPLES={type:'FeatureCollection',features:[
+ {type:'Feature',properties:{id:'ex1',title:'Example: tūī feeding in kōwhai',cat:'Example',note:'A sighting logged by a volunteer.'},geometry:{type:'Point',coordinates:[175.6178,-40.3489]}},
+ {type:'Feature',properties:{id:'ex2',title:'Example: proposed planting strip',cat:'Example',note:'Road berm that could take native shrubs.'},geometry:{type:'LineString',coordinates:[[175.6205,-40.3515],[175.6222,-40.3507],[175.6238,-40.3499]]}},
+ {type:'Feature',properties:{id:'ex3',title:'Example: block to survey for weeds',cat:'Example',note:'Walk this block in spring.'},geometry:{type:'Polygon',coordinates:[[[175.6152,-40.3510],[175.6172,-40.3510],[175.6172,-40.3496],[175.6152,-40.3496],[175.6152,-40.3510]]]}},
+]};
+let ANN; let stored=true;
+try{const s=localStorage.getItem(SKEY); ANN=s?JSON.parse(s):null}catch(e){stored=false}
+if(!ANN||!Array.isArray(ANN.features)) ANN=JSON.parse(JSON.stringify(EXAMPLES));
+function saveAnn(){try{localStorage.setItem(SKEY,JSON.stringify(ANN));stored=true}catch(e){stored=false} renderAnnList(); refreshAnnSource()}
+
+// ---------- map styles ----------
+const IMGBOX=[[BOX[0][0],BOX[1][1]],[BOX[1][0],BOX[1][1]],[BOX[1][0],BOX[0][1]],[BOX[0][0],BOX[0][1]]];
+function aerialStyle(){return {version:8,sources:{aer:{type:'canvas',canvas:'cv-aerial',coordinates:IMGBOX,animate:false}},layers:[{id:'bg',type:'background',paint:{'background-color':'#f4f5f3'}},{id:'aer',type:'raster',source:'aer',paint:{'raster-fade-duration':0}}]}}
+function osmBaseStyle(){return {version:8,sources:{},layers:[{id:'bg',type:'background',paint:{'background-color':'#f4f5f3'}}]}}
+function rasterStyle(tiles,attr,max){return {version:8,sources:{r:{type:'raster',tiles:[tiles],tileSize:256,maxzoom:max||19,attribution:attr}},layers:[{id:'bg',type:'background',paint:{'background-color':'#f4f5f3'}},{id:'r',type:'raster',source:'r'}]}}
+let baseMode='aerial';
+// Images are drawn into canvases first: the artifact frame blocks MapLibre from fetching data: URLs, but <img> can load them.
+const imgReady={};
+function drawImg(key){return new Promise(res=>{const im=new Image();im.onload=()=>{const c=document.getElementById('cv-'+key);c.width=im.naturalWidth;c.height=im.naturalHeight;c.getContext('2d').drawImage(im,0,0);imgReady[key]=true;res(true)};im.onerror=()=>res(false);im.src=IMG[key]})}
+const map=new maplibregl.Map({container:'map',style:osmBaseStyle(),bounds:BOX,fitBoundsOptions:{padding:12},maxBounds:[[175.600,-40.362],[175.639,-40.337]],attributionControl:{compact:false},canvasContextAttributes:{preserveDrawingBuffer:true},preserveDrawingBuffer:true});
+map.addControl(new maplibregl.NavigationControl({showCompass:false}),'top-right');
+map.addControl(new maplibregl.ScaleControl({maxWidth:120,unit:'metric'}),'bottom-left');
+
+function addOverlays(){
+  const showBase = baseMode==='osm';
+  map.addSource('box',{type:'geojson',data:BOXPOLY});
+  LAYERS.forEach(L=>{
+    if(L.empty) return;
+    if(L.panel===false) return;
+    map.addSource(L.id,{type:'geojson',data:DATA[L.id]||{type:'FeatureCollection',features:[]},attribution:L.pub==='osm'?'© OpenStreetMap contributors':PUB[L.pub][0]});
+    const v=(document.getElementById('chk-'+L.id)? (document.getElementById('chk-'+L.id).checked?'visible':'none') : (L.on?'visible':'none'));
+    if(L.kind==='image'){
+      if(L.id==='aerial') return;
+      map.removeSource(L.id); if(!imgReady.elev) return; map.addSource(L.id,{type:'canvas',canvas:'cv-elev',coordinates:IMGBOX,animate:false});
+      map.addLayer({id:L.id,type:'raster',source:L.id,layout:{visibility:v},paint:{'raster-opacity':.8,'raster-fade-duration':0}});
+    } else if(L.kind==='contour'){
+      map.addLayer({id:L.id,type:'line',source:L.id,layout:{visibility:v,'line-join':'round'},paint:{'line-color':L.color,'line-width':['case',['get','major'],1.6,.7],'line-opacity':['case',['get','major'],.95,.6]}});
+    } else if(L.kind==='canopy'){
+      map.addLayer({id:L.id,type:'fill',source:L.id,layout:{visibility:v},paint:{'fill-color':['match',['get','band'],1,'#a6d78f',2,'#4fa15e','#1d5e31'],'fill-opacity':.6}});
+    } else if(L.kind==='fill'){
+      map.addLayer({id:L.id,type:'fill',source:L.id,layout:{visibility:v},paint:{'fill-color':L.color,'fill-opacity':L.opacity??.6}});
+      if(L.outline) map.addLayer({id:L.id+'__o',type:'line',source:L.id,layout:{visibility:v},paint:{'line-color':L.color,'line-width':1.2}});
+    } else if(L.kind==='outline'){
+      map.addLayer({id:L.id,type:'fill',source:L.id,layout:{visibility:v},paint:{'fill-color':L.color,'fill-opacity':0.01}});
+      map.addLayer({id:L.id+'__o',type:'line',source:L.id,layout:{visibility:v},paint:{'line-color':L.color,'line-width':L.width||1.6,'line-dasharray':L.width?[1,0]:[3,2]}});
+    } else if(L.kind==='line'){
+      map.addLayer({id:L.id,type:'line',source:L.id,layout:{visibility:v,'line-cap':'round','line-join':'round'},paint:{'line-color':L.color,'line-width':L.width||2,...(L.dash?{'line-dasharray':[2,2]}:{})}});
+    } else if(L.kind==='circle'){
+      const col = L.id==='inat_obs' ? ['match',['get','group'],...Object.entries(INATC).flat(),'#7d8883'] : L.color;
+      map.addLayer({id:L.id,type:'circle',source:L.id,layout:{visibility:v},paint:{'circle-color':col,'circle-radius':L.r||4.5,'circle-stroke-color':'#ffffff','circle-stroke-width':1.2,'circle-opacity':.92}});
+    }
+  });
+  map.addLayer({id:'box-line',type:'line',source:'box',paint:{'line-color':'#b8334a','line-width':2,'line-dasharray':[4,2]}});
+  map.addSource('centre',{type:'geojson',data:{type:'Feature',properties:{},geometry:{type:'Point',coordinates:CENTER}}});
+  map.addLayer({id:'centre',type:'circle',source:'centre',paint:{'circle-radius':6,'circle-color':'#ffffff','circle-stroke-color':'#b8334a','circle-stroke-width':3}});
+  // annotations
+  map.addSource('ann',{type:'geojson',data:ANN});
+  const ccol=['match',['get','cat'],...Object.entries(CATS).flat(),'#b8334a'];
+  map.addLayer({id:'ann-fill',type:'fill',source:'ann',filter:['==',['geometry-type'],'Polygon'],paint:{'fill-color':ccol,'fill-opacity':.18}});
+  map.addLayer({id:'ann-line',type:'line',source:'ann',filter:['!=',['geometry-type'],'Point'],paint:{'line-color':ccol,'line-width':3}});
+  map.addLayer({id:'ann-pt',type:'circle',source:'ann',filter:['==',['geometry-type'],'Point'],paint:{'circle-radius':7,'circle-color':ccol,'circle-stroke-color':'#ffffff','circle-stroke-width':2}});
+  map.addSource('draft',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+  map.addLayer({id:'draft-fill',type:'fill',source:'draft',filter:['==',['geometry-type'],'Polygon'],paint:{'fill-color':'#b8334a','fill-opacity':.12}});
+  map.addLayer({id:'draft-line',type:'line',source:'draft',filter:['!=',['geometry-type'],'Point'],paint:{'line-color':'#b8334a','line-width':2,'line-dasharray':[2,1]}});
+  map.addLayer({id:'draft-pt',type:'circle',source:'draft',filter:['==',['geometry-type'],'Point'],paint:{'circle-radius':4,'circle-color':'#b8334a'}});
+}
+map.on('style.load',addOverlays);
+// Keep the square filling the frame if the page resizes after load, until the viewer pans or zooms.
+let userMoved=false;
+map.on('movestart',e=>{ if(e.originalEvent) userMoved=true });
+new ResizeObserver(()=>{ map.resize(); if(!userMoved) map.fitBounds(BOX,{padding:12,animate:false}) }).observe(document.getElementById('map'));
+Promise.all([drawImg('aerial'),drawImg('elev')]).then(()=>{
+  if(baseMode==='aerial'){ if(imgReady.aerial) map.setStyle(aerialStyle(),{diff:false}); else {document.getElementById('base-osm').checked=true; setBase('osm')} }
+  else if(baseMode==='osm') map.setStyle(osmBaseStyle(),{diff:false});
+});
+
+// ---------- base switching ----------
+const tilenote=document.getElementById('tilenote');
+let keyVal=''; try{keyVal=localStorage.getItem('linz-key')||''}catch(e){}
+document.getElementById('linzkey').value=keyVal;
+function setBase(mode){
+  baseMode=mode; tilenote.hidden=true;
+  if(mode==='osm'||mode==='aerial') LAYERS.filter(l=>l.base).forEach(l=>{const c=document.getElementById('chk-'+l.id); if(c) c.checked=(mode==='osm')});
+  if(mode==='osm') map.setStyle(osmBaseStyle(),{diff:false});
+  if(mode==='aerial'){ if(imgReady.aerial) map.setStyle(aerialStyle(),{diff:false}); }
+  if(mode==='ofm') tryVector();
+  if(mode==='linz'){
+    const k=document.getElementById('linzkey').value.trim();
+    if(!k){tilenote.textContent='Paste your LINZ Data Service key first. The key stays in this browser.';tilenote.hidden=false;document.getElementById('base-aerial').checked=true;setBase('aerial');return}
+    try{localStorage.setItem('linz-key',k)}catch(e){}
+    map.setStyle(rasterStyle('https://tiles-a.data-cdn.linz.govt.nz/services;key='+encodeURIComponent(k)+'/tiles/v4/layer=119050/EPSG:3857/{z}/{x}/{y}.png','© Toitū Te Whenua LINZ, CC BY 4.0',21),{diff:false});
+  }
+}
+function tryVector(){
+  // When hosted, swap the OSM raster for OpenFreeMap's vector style; inside the Claude preview the request is blocked and the notice explains.
+  fetch('https://tiles.openfreemap.org/styles/positron').then(r=>r.json()).then(st=>{if(baseMode==='ofm'){st.layers=st.layers.filter(l=>l.type!=='symbol');map.setStyle(st,{diff:false})}}).catch(()=>showBlocked());
+}
+let blockedTimer;
+function showBlocked(){clearTimeout(blockedTimer);blockedTimer=setTimeout(()=>{if(baseMode==='ofm'||baseMode==='linz'){tilenote.textContent='Tiles from other sites are blocked inside this preview. They load normally once the page is hosted on your own site. Switch back to Aerial photo 2024 or Street map, which are built into the page.';tilenote.hidden=false}},400)}
+map.on('error',e=>{ if(baseMode==='ofm'||baseMode==='linz') showBlocked() });
+document.querySelectorAll('input[name=base]').forEach(r=>r.addEventListener('change',()=>setBase(r.value)));
+
+// ---------- layer panel ----------
+const groups=[...new Set(LAYERS.map(l=>l.g))];
+const lc=document.getElementById('layers');
+groups.forEach(g=>{
+  const box=document.createElement('div');box.className='group';
+  box.innerHTML='<h3>'+g+'</h3>';
+  LAYERS.filter(l=>l.g===g&&l.panel!==false).forEach(L=>{
+    const row=document.createElement('label');row.className='lyr'+(L.empty?' empty':'');
+    const sw=L.kind==='circle'?'pt':(L.kind==='line'||L.kind==='contour'?'ln':'');
+    row.innerHTML=`<input type="checkbox" id="chk-${L.id}" ${L.on?'checked':''} ${L.empty?'disabled':''}><span class="sw ${sw}" style="--sw:${L.color}"></span><span>${L.label}</span><span class="n">${L.empty?'none here':(L.countText||L.count.toLocaleString('en-NZ'))}</span>`;
+    box.appendChild(row);
+    if(L.id==='lidar_canopy'){const lg=document.createElement('div');lg.className='legend-inat';lg.innerHTML=[['3–8 m','#a6d78f'],['8–15 m','#4fa15e'],['over 15 m','#1d5e31']].map(([n,c])=>`<span style="--c:${c}">${n}</span>`).join('');box.appendChild(lg)}
+    if(L.id==='inat_obs'){const lg=document.createElement('div');lg.className='legend-inat';lg.innerHTML=Object.entries({Birds:'Aves',Plants:'Plantae',Insects:'Insecta',Fungi:'Fungi',Spiders:'Arachnida',Reptiles:'Reptilia'}).map(([n,k])=>`<span style="--c:${INATC[k]}">${n}</span>`).join('');box.appendChild(lg)}
+    row.querySelector('input').addEventListener('change',e=>{
+      const v=e.target.checked?'visible':'none';
+      [L.id,L.id+'__o'].forEach(id=>{if(map.getLayer(id))map.setLayoutProperty(id,'visibility',v)});
+    });
+  });
+  lc.appendChild(box);
+});
+
+// ---------- popups ----------
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const titleCase=s=>String(s||'').toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());
+function popupHTML(id,p){
+  const L=LAYERS.find(l=>l.id===id); const src=L?esc(L.label)+' · '+esc(PUB[L.pub][0]):'';
+  let b='',x='';
+  switch(id){
+    case 'inat_obs': b=p.name; x=`<i>${esc(p.sci)}</i><br>${esc(p.date)} · ${esc(p.grade==='research'?'Research grade':p.grade==='needs_id'?'Needs ID':'Casual')}${p.obscured?'<br>Location blurred':''}<br>Licence: ${esc((p.lic||'none').toUpperCase())}<br><a href="${esc(p.url)}" target="_blank" rel="noopener">Open on iNaturalist</a>`;break;
+    case 'pncc_notable_trees': b=p.COMMON_NAME; x=`<i>${esc(p.BOTANICAL_NAME)}</i>`;break;
+    case 'osm_trees': b='Tree'; x=(p.species?esc(p.species)+'<br>':'Species not recorded<br>')+`<a href="${esc(p.osm)}" target="_blank" rel="noopener">Edit on OpenStreetMap</a>`;break;
+    case 'pncc_zones': b=p.ZONE; break;
+    case 'pncc_parcels': b='Parcel '+(p.PAR_ID||''); x=esc(p.FEATURE_CODE?titleCase(p.FEATURE_CODE):'');break;
+    case 'pncc_storm_mains': b=titleCase(p.LOCATION)||'Stormwater pipe'; x=`${esc(p.DIAMETER)} mm ${esc(p.MATERIAL)} · ${esc(p.OWNER)}`;break;
+    case 'pncc_heritage': b=p.BLDG_OBJECT; x=esc(p.TYPE);break;
+    case 'pncc_playgrounds': b=titleCase(p.PLAYGROUND_NAME); x=esc(titleCase(p.PLAYGROUND_CAT));break;
+    case 'pncc_cycle': b=titleCase(p.ROAD_NAME); x=esc(p.FAC_TYPE_DESC)+' · '+esc(p.STATUS);break;
+    case 'hz_flood200': b='Modelled flooding, 200‑year event'; x='Class '+esc(p.gridcode);break;
+    case 'hz_liquefaction': b='Liquefaction: '+p.LiquefactionSusceptibilityClass; x='Use at 1:50,000 scale or coarser';break;
+    case 'hz_smap': b='Soil map unit'; x=esc(p.SMU);break;
+    case 'hz_bore': b='Groundwater bore '+p.BoreID; x=`Depth ${esc(p.Depth)} m · water level ${esc(p.SWL)} m below ground`;break;
+    case 'hz_water_area': b=p.SurfaceWaterManageSubareaName; x=esc(p.SurfaceWaterManageSubareaCode);break;
+    case 'lcdb': b=p.Name_2023||p.Name_2018; x='Same class in 1996, 2001, 2018 and 2023';break;
+    case 'osm_roads': b=p.name||titleCase(p.type)+' road'; break;
+    case 'osm_green': b=p.name||titleCase(p.type); break;
+    case 'osm_buildings': b='Building'; x=p.building&&p.building!=='yes'?esc(titleCase(p.building)):'';break;
+    case 'osm_paths': b=titleCase(p.type); break;
+    case 'lidar_contours': b='Ground height '+Number(p.elev).toFixed(1)+' m'; x='Above sea level (NZVD2016), from 2018 LiDAR';break;
+    case 'lidar_canopy': b='Tree canopy, '+p.label+' tall'; x='Derived from 2018 LiDAR';break;
+    case 'pncc_storm_catchment': b='Stormwater catchment'; x=esc(p.NAME||'Unnamed');break;
+    default: b=id;
+  }
+  return `<span class="src">${src}</span><b>${esc(b)}</b>${x}`;
+}
+const CLICK_ORDER=['ann-pt','ann-line','ann-fill','inat_obs','pncc_notable_trees','osm_trees','hz_bore','pncc_heritage','pncc_playgrounds','pncc_cycle','pncc_storm_mains','lidar_contours','hz_flood200','lidar_canopy','osm_roads','osm_paths','pncc_parcels','osm_buildings','osm_green','pncc_zones','pncc_storm_catchment','hz_smap','hz_liquefaction','hz_water_area','lcdb'];
+map.on('click',e=>{
+  if(drawMode) return;
+  const ids=CLICK_ORDER.filter(id=>map.getLayer(id)&&map.getLayoutProperty(id,'visibility')!=='none');
+  const fs=map.queryRenderedFeatures([[e.point.x-4,e.point.y-4],[e.point.x+4,e.point.y+4]],{layers:ids});
+  if(!fs.length) return;
+  fs.sort((a,b)=>ids.indexOf(a.layer.id)-ids.indexOf(b.layer.id));
+  const f=fs[0]; let html;
+  if(f.layer.id.startsWith('ann-')){const p=f.properties;html=`<span class="src">Your annotation · ${esc(p.cat)}</span><b>${esc(p.title)}</b>${esc(p.note)}`}
+  else html=popupHTML(f.layer.id,f.properties);
+  new maplibregl.Popup({maxWidth:'280px'}).setLngLat(e.lngLat).setHTML(html).addTo(map);
+});
+map.on('mousemove',e=>{ if(drawMode){map.getCanvas().style.cursor='crosshair';return}
+  const ids=CLICK_ORDER.filter(id=>map.getLayer(id)&&map.getLayoutProperty(id,'visibility')!=='none'&&!['osm_buildings','pncc_zones','osm_green','lcdb','hz_liquefaction','hz_water_area','pncc_storm_catchment','hz_smap','pncc_parcels'].includes(id));
+  map.getCanvas().style.cursor=map.queryRenderedFeatures(e.point,{layers:ids}).length?'pointer':'';
+});
+
+// ---------- drawing ----------
+let drawMode=null, verts=[], pending=null;
+const btn={point:document.getElementById('d-point'),line:document.getElementById('d-line'),area:document.getElementById('d-area')};
+const fin=document.getElementById('d-finish'), can=document.getElementById('d-cancel'), hint=document.getElementById('d-hint');
+const form=document.getElementById('annform'), cat=document.getElementById('a-cat');
+cat.innerHTML=Object.keys(CATS).filter(c=>c!=='Example').map(c=>`<option>${c}</option>`).join('');
+function draftGeom(){
+  if(!verts.length) return {type:'FeatureCollection',features:[]};
+  const fs=verts.map(v=>({type:'Feature',properties:{},geometry:{type:'Point',coordinates:v}}));
+  if(drawMode==='line'&&verts.length>1) fs.push({type:'Feature',properties:{},geometry:{type:'LineString',coordinates:verts}});
+  if(drawMode==='area'&&verts.length>2) fs.push({type:'Feature',properties:{},geometry:{type:'Polygon',coordinates:[[...verts,verts[0]]]}});
+  else if(drawMode==='area'&&verts.length===2) fs.push({type:'Feature',properties:{},geometry:{type:'LineString',coordinates:verts}});
+  return {type:'FeatureCollection',features:fs};
+}
+function setDraft(){map.getSource('draft')?.setData(draftGeom())}
+function startDraw(m){
+  cancelDraw(); drawMode=m; btn[m].classList.add('on'); can.hidden=false;
+  map.doubleClickZoom.disable();
+  hint.textContent = m==='point'?'Click the map to place the point.':(m==='line'?'Click to add points along the line, then Finish shape.':'Click the corners of the area, then Finish shape.');
+}
+function cancelDraw(){drawMode=null;verts=[];setDraft();Object.values(btn).forEach(b=>b.classList.remove('on'));fin.hidden=true;can.hidden=true;hint.textContent='Pick a tool, then click the map.';map.doubleClickZoom.enable();map.getCanvas().style.cursor=''}
+Object.entries(btn).forEach(([m,b])=>b.addEventListener('click',()=>drawMode===m?cancelDraw():startDraw(m)));
+can.addEventListener('click',()=>{cancelDraw();form.hidden=true;pending=null});
+fin.addEventListener('click',finishShape);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&drawMode){cancelDraw()}});
+map.on('click',e=>{
+  if(!drawMode) return;
+  verts.push([+e.lngLat.lng.toFixed(6),+e.lngLat.lat.toFixed(6)]); setDraft();
+  if(drawMode==='point') return finishShape();
+  fin.hidden = !((drawMode==='line'&&verts.length>1)||(drawMode==='area'&&verts.length>2));
+});
+map.on('dblclick',e=>{ if(drawMode&&drawMode!=='point'){e.preventDefault(); verts.pop(); finishShape()} });
+function finishShape(){
+  let g;
+  if(drawMode==='point') g={type:'Point',coordinates:verts[0]};
+  else if(drawMode==='line'&&verts.length>1) g={type:'LineString',coordinates:verts};
+  else if(drawMode==='area'&&verts.length>2) g={type:'Polygon',coordinates:[[...verts,verts[0]]]};
+  else return;
+  pending=g; const keep=drawMode; drawMode=null; Object.values(btn).forEach(b=>b.classList.remove('on')); fin.hidden=true;
+  hint.textContent='Name it and save it in the panel.';
+  form.hidden=false; document.getElementById('a-title').value=''; document.getElementById('a-note').value=''; document.getElementById('a-title').focus();
+  form.scrollIntoView({block:'nearest',behavior:'smooth'});
+}
+form.addEventListener('submit',e=>{
+  e.preventDefault(); if(!pending) return;
+  ANN.features.push({type:'Feature',properties:{id:'a'+Date.now().toString(36),title:document.getElementById('a-title').value.trim()||'Untitled',cat:cat.value,note:document.getElementById('a-note').value.trim(),added:new Date().toISOString().slice(0,10)},geometry:pending});
+  pending=null; form.hidden=true; verts=[]; setDraft(); cancelDraw(); saveAnn();
+});
+document.getElementById('a-discard').addEventListener('click',()=>{pending=null;form.hidden=true;cancelDraw()});
+
+function refreshAnnSource(){map.getSource('ann')?.setData(ANN)}
+function centroid(g){const c=g.type==='Point'?[g.coordinates]:(g.type==='LineString'?g.coordinates:g.coordinates[0]);return [c.reduce((a,b)=>a+b[0],0)/c.length,c.reduce((a,b)=>a+b[1],0)/c.length]}
+function renderAnnList(){
+  const ul=document.getElementById('annlist'); ul.innerHTML='';
+  ANN.features.forEach((f,i)=>{
+    const p=f.properties, kind={Point:'Point',LineString:'Line',Polygon:'Area'}[f.geometry.type];
+    const li=document.createElement('li');
+    li.innerHTML=`<span class="dot" style="--c:${CATS[p.cat]||'#b8334a'}"></span><span><span class="t">${esc(p.title)}</span><br><span class="m">${esc(kind)} · ${esc(p.cat)}${p.note?' · '+esc(p.note):''}</span></span><span class="acts no-print"><button type="button" data-z="${i}">Show</button><button type="button" data-d="${i}" aria-label="Delete ${esc(p.title)}">Delete</button></span>`;
+    ul.appendChild(li);
+  });
+  if(!ANN.features.length) ul.innerHTML='<li><span></span><span class="m">No annotations yet. Use the Point, Line or Area tools under the map.</span><span></span></li>';
+  document.getElementById('annstore').textContent = stored ? 'Saved in this browser only. Use Show as GeoJSON to take a copy.' : 'This browser is not saving annotations. Copy them out as GeoJSON before you leave.';
+}
+document.getElementById('annlist').addEventListener('click',e=>{
+  const z=e.target.dataset.z, d=e.target.dataset.d;
+  if(z!==undefined){map.flyTo({center:centroid(ANN.features[+z].geometry),zoom:Math.max(map.getZoom(),16.5)})}
+  if(d!==undefined){
+    if(e.target.dataset.confirm){ANN.features.splice(+d,1);saveAnn()}
+    else{e.target.dataset.confirm='1';e.target.textContent='Confirm';setTimeout(()=>{if(e.target.isConnected){delete e.target.dataset.confirm;e.target.textContent='Delete'}},3000)}
+  }
+});
+// import / export
+const io=document.getElementById('io-text'), iomsg=document.getElementById('io-msg'), copyBtn=document.getElementById('io-copy');
+document.getElementById('io-export').addEventListener('click',()=>{io.value=JSON.stringify(ANN,null,1);copyBtn.hidden=false;iomsg.textContent=ANN.features.length+' annotations as GeoJSON. Copy and save it as a .geojson file, or open it in QGIS.'});
+copyBtn.addEventListener('click',()=>{navigator.clipboard.writeText(io.value).then(()=>{iomsg.textContent='Copied.'}).catch(()=>{io.select();iomsg.textContent='Copy was refused here. The text is selected, so press Ctrl+C or ⌘C.'})});
+function loadGeo(txt){
+  try{
+    const g=JSON.parse(txt); const fs=g.type==='FeatureCollection'?g.features:(g.type==='Feature'?[g]:null);
+    if(!fs) throw new Error('not a Feature or FeatureCollection');
+    let n=0; fs.forEach(f=>{ if(!f.geometry||!['Point','LineString','Polygon'].includes(f.geometry.type)) return; const p=f.properties||{};
+      ANN.features.push({type:'Feature',properties:{id:p.id||('i'+Math.random().toString(36).slice(2,8)),title:p.title||p.name||'Imported',cat:CATS[p.cat]?p.cat:'Observation',note:p.note||p.description||''},geometry:f.geometry});n++});
+    saveAnn(); iomsg.textContent=`Loaded ${n} feature${n===1?'':'s'}. Points, lines and areas are supported.`;
+  }catch(err){iomsg.textContent='That is not valid GeoJSON ('+err.message+'). Check it starts with { "type": "FeatureCollection".'}
+}
+document.getElementById('io-import').addEventListener('click',()=>{if(io.value.trim())loadGeo(io.value);else iomsg.textContent='Paste GeoJSON into the box first.'});
+document.getElementById('io-file').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>loadGeo(r.result);r.readAsText(f)});
+renderAnnList();
+
+// ---------- findings ----------
+const vc={good:0,coarse:0,empty:0}; LAYERS.forEach(l=>vc[l.v]++);
+const inat=DATA.inat_obs.features, rg=inat.filter(f=>f.properties.grade==='research').length, nc=inat.filter(f=>(f.properties.lic||'').includes('nc')).length;
+const species=new Set(inat.map(f=>f.properties.sci)).size;
+document.querySelectorAll('.gaps span').forEach(e=>{e.innerHTML=e.innerHTML.replace('CANOPY%',LIDAR.cover+'%')});
+document.getElementById('tally').innerHTML=`
+ <div><span class="k g">${vc.good}</span><b>layers worth using at street scale</b><p>Mostly council data from <a href="https://www.pncc.govt.nz" target="_blank" rel="noopener">PNCC</a>: parcels, zones, stormwater pipes and notable trees. Add OpenStreetMap buildings and paths, and ${inat.length} iNaturalist sightings covering ${species} species.</p></div>
+ <div><span class="k c">${vc.coarse}</span><b>layers too coarse or too patchy</b><p>National land cover, soils and liquefaction each give one or two shapes for the whole square. Mapped trees are incomplete. These suit a catchment group better than a street project.</p></div>
+ <div><span class="k e">${vc.empty}</span><b>layers with nothing here</b><p>No conservation land and no open streams inside the square. That is a finding in itself. It shows the case for a group adding its own data.</p></div>`;
+const tb=document.querySelector('#ltable tbody');
+LAYERS.forEach(L=>{
+  const P=PUB[L.pub]; const lic=L.pub==='inat'?`<span class="lic-warn">${nc} of ${inat.length} are non‑commercial</span>`:(P[2].startsWith('Not')?`<span class="lic-warn">${P[2]}</span>`:P[2]);
+  const tr=document.createElement('tr');
+  tr.innerHTML=`<td><b>${L.label}</b></td><td><a href="${P[1]}" target="_blank" rel="noopener">${P[0]}</a><br><span class="hint mono">${P[1].replace('https://','')}</span></td><td>${lic}</td><td class="num">${L.empty?'0':(L.countText||L.count.toLocaleString('en-NZ'))}</td><td><span class="chip ${L.v}">${{good:'Useful',coarse:'Coarse',empty:'Empty here'}[L.v]}</span></td><td>${L.why}</td>`;
+  tb.appendChild(tr);
+});
+document.getElementById('attrib').innerHTML=`Data: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a> (ODbL); <a href="https://www.pncc.govt.nz" target="_blank" rel="noopener">Palmerston North City Council</a> (CC BY 4.0); <a href="https://www.horizons.govt.nz" target="_blank" rel="noopener">Horizons Regional Council</a>; <a href="https://www.landcareresearch.co.nz" target="_blank" rel="noopener">Manaaki Whenua – Landcare Research</a>, served by <a href="https://www.eagle.co.nz" target="_blank" rel="noopener">Eagle Technology</a>; sightings from <a href="https://inaturalist.nz" target="_blank" rel="noopener">iNaturalist NZ</a> observers under each record's licence; <a href="https://www.doc.govt.nz" target="_blank" rel="noopener">Department of Conservation</a>. Downloaded ${new Date('2026-10-17').toLocaleDateString('en-NZ')}. Aerial photos and LiDAR © <a href="https://www.linz.govt.nz" target="_blank" rel="noopener">Toitū Te Whenua LINZ</a> (CC BY 4.0); LiDAR via the LINZ open elevation store on AWS. Map built with MapLibre GL JS.`;
+</script>
