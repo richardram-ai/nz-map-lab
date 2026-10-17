@@ -2,7 +2,7 @@
 
 A test of what free public New Zealand data can be layered on a map, and how an organisation can add its own notes on top. The test area is a 1 km square centred on 16 Sydney Street, Palmerston North.
 
-Live site: (Cloudflare Pages address to be added)
+Live site: https://nz-map-lab.pages.dev
 
 ## What's here
 
