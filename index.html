@@ -56,6 +56,38 @@ header{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px 32px;align
 .workspace{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;align-items:start}
 .mapcol{display:flex;flex-direction:column;gap:10px;min-width:0}
 #map{width:100%;aspect-ratio:1/1;max-height:78vh;border:1px solid var(--rule);background:#f4f5f3}
+.mapwrap{position:relative}
+#map2{position:absolute;inset:0;pointer-events:none;border:1px solid var(--rule)}
+#map2 .maplibregl-control-container{display:none}
+.swipe{position:absolute;top:0;bottom:0;width:0;border-left:2px solid #ffffff;box-shadow:0 0 0 1px rgba(0,0,0,.35);z-index:5;cursor:ew-resize}
+.swipe button{position:absolute;top:50%;left:-15px;width:28px;height:28px;margin-top:-14px;border-radius:50%;padding:0;background:#ffffff;color:#1b2722;border:1px solid #9aa49f;font-size:.8rem;cursor:ew-resize;touch-action:none}
+.yeartag{position:absolute;top:8px;z-index:4;font:600 .78rem var(--font-body);background:#ffffff;color:#1b2722;padding:2px 7px;border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,.2);pointer-events:none}
+.timeline{display:flex;flex-direction:column;gap:10px;border-top:2px solid var(--accent);padding-top:10px}
+.tl-row{display:grid;grid-template-columns:150px minmax(0,1fr);gap:6px 14px;align-items:start}
+.tl-label{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700;padding-top:6px}
+.years{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.years button{font-variant-numeric:tabular-nums;padding:4px 9px}
+.years button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);font-weight:700;box-shadow:inset 0 -2px 0 var(--accent)}
+.years .sep{width:1px;height:22px;background:var(--rule);margin:0 6px}
+.years button.cmp-on{border-color:var(--alert);color:var(--alert);font-weight:600}
+.years select{font:inherit;font-size:.82rem;padding:3px 4px;border:1px solid var(--rule);background:var(--bg);color:var(--ink)}
+.hist{position:relative}
+.hist svg{display:block;width:100%;height:64px;overflow:visible}
+.hist .bar{fill:var(--accent)} .hist .bar.out{fill:var(--rule)}
+.hist .axis{font-size:10px;fill:var(--muted);font-variant-numeric:tabular-nums}
+.hist .base{stroke:var(--rule);stroke-width:1}
+.tip{position:absolute;pointer-events:none;background:var(--bg);color:var(--ink);border:1px solid var(--rule);font-size:.75rem;padding:3px 7px;border-radius:3px;white-space:nowrap;transform:translate(-50%,-110%);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.dual{position:relative;height:24px}
+.dual input{position:absolute;left:0;right:0;width:100%;top:2px;margin:0;pointer-events:none;-webkit-appearance:none;appearance:none;background:transparent;height:20px}
+.dual input::-webkit-slider-thumb{pointer-events:auto;-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--bg);border:2px solid var(--accent);cursor:pointer}
+.dual input::-moz-range-thumb{pointer-events:auto;width:14px;height:14px;border-radius:50%;background:var(--bg);border:2px solid var(--accent);cursor:pointer}
+.dual input::-webkit-slider-runnable-track{height:2px;background:transparent}
+.dual .track{position:absolute;left:8px;right:8px;top:11px;height:2px;background:var(--rule)}
+.dual .fill{position:absolute;top:11px;height:2px;background:var(--accent)}
+.tl-ctrl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:.84rem}
+.tl-ctrl output{font-variant-numeric:tabular-nums;font-weight:600}
+@media (max-width:600px){.tl-row{grid-template-columns:minmax(0,1fr)}}
+@media print{#map2,.swipe,.yeartag{display:none!important}}
 .basebar{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;font-size:.85rem}
 .basebar label{display:flex;gap:6px;align-items:center;cursor:pointer}
 .basebar input[type=text]{font:inherit;font-size:.8rem;padding:4px 6px;border:1px solid var(--rule);background:var(--bg);color:var(--ink);width:15ch}
@@ -164,15 +196,34 @@ footer{font-size:.78rem;color:var(--muted);border-top:1px solid var(--rule);padd
   <div class="mapcol">
     <div class="basebar no-print" role="radiogroup" aria-label="Base map">
       <span class="hint">Base map:</span>
-      <label><input type="radio" name="base" id="base-aerial" value="aerial" checked> Aerial photo 2024</label>
+      <label><input type="radio" name="base" id="base-aerial" value="aerial" checked> Aerial photo</label>
       <label><input type="radio" name="base" id="base-osm" value="osm"> Street map</label>
       <label><input type="radio" name="base" id="base-ofm" value="ofm"> OpenFreeMap tiles</label>
       <label><input type="radio" name="base" id="base-linz" value="linz"> LINZ full-detail photo</label>
       <input type="text" id="linzkey" placeholder="LINZ Data Service key" aria-label="LINZ Data Service API key">
     </div>
     <p class="notice no-print" id="tilenote" hidden></p>
-    <canvas id="cv-aerial" hidden></canvas><canvas id="cv-elev" hidden></canvas>
-    <div id="map" role="region" aria-label="Map of the 1 km test square"></div>
+    <canvas id="cv-aerial" hidden></canvas><canvas id="cv-elev" hidden></canvas><canvas id="cv-b" hidden></canvas>
+    <div class="mapwrap" id="mapwrap"><div id="map" role="region" aria-label="Map of the 1 km test square"></div>
+      <div id="map2" hidden aria-hidden="true"></div>
+      <div class="swipe" id="swipe" hidden><button type="button" id="swipe-btn" aria-label="Drag to compare years">⇔</button></div>
+      <span class="yeartag" id="tagA" hidden></span><span class="yeartag" id="tagB" hidden></span></div>
+    <section class="timeline" aria-label="Timeline">
+      <div class="tl-row">
+        <span class="tl-label">Aerial photo year</span>
+        <div class="years" id="years" role="group" aria-label="Aerial photo year"></div>
+      </div>
+      <div class="tl-row">
+        <span class="tl-label">Sightings and notes</span>
+        <div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+          <div class="hist" id="hist"></div>
+          <div class="dual no-print" id="dual"><span class="track"></span><span class="fill" id="dualfill"></span>
+            <input type="range" id="t-from" aria-label="From"><input type="range" id="t-to" aria-label="To"></div>
+          <div class="tl-ctrl"><output id="t-read"></output>
+            <span class="no-print" style="display:flex;gap:6px;margin-left:auto"><button type="button" id="t-play">▶ Play by year</button><button type="button" id="t-all">Show all dates</button></span></div>
+        </div>
+      </div>
+    </section>
     <div class="drawbar no-print">
       <span class="lbl">Add your own:</span>
       <button id="d-point" type="button">Point</button>
@@ -373,7 +424,7 @@ function addOverlays(){
   map.addLayer({id:'draft-line',type:'line',source:'draft',filter:['!=',['geometry-type'],'Point'],paint:{'line-color':'#b8334a','line-width':2,'line-dasharray':[2,1]}});
   map.addLayer({id:'draft-pt',type:'circle',source:'draft',filter:['==',['geometry-type'],'Point'],paint:{'circle-radius':4,'circle-color':'#b8334a'}});
 }
-map.on('style.load',addOverlays);
+map.on('style.load',()=>{addOverlays();applyTime()});
 // Keep the square filling the frame if the page resizes after load, until the viewer pans or zooms.
 let userMoved=false;
 map.on('movestart',e=>{ if(e.originalEvent) userMoved=true });
@@ -398,7 +449,7 @@ function setBase(mode){
   if(mode==='ofm') tryVector();
   if(mode==='linz'){
     if(!LOCAL_FILE){
-      map.setStyle(rasterStyle(location.origin+'/linz/aerial/{z}/{x}/{y}.png','© Toitū Te Whenua LINZ, CC BY 4.0',21),{diff:false});
+      map.setStyle(rasterStyle(location.origin+'/linz/aerial/{z}/{x}/{y}.png?year='+yearA,'© Toitū Te Whenua LINZ, CC BY 4.0',21),{diff:false});
       return;
     }
     const k=document.getElementById('linzkey').value.trim();
@@ -576,6 +627,141 @@ function loadGeo(txt){
 }
 document.getElementById('io-import').addEventListener('click',()=>{if(io.value.trim())loadGeo(io.value);else iomsg.textContent='Paste GeoJSON into the box first.'});
 document.getElementById('io-file').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>loadGeo(r.result);r.readAsText(f)});
+// ---------- timeline ----------
+const YEARS=[2013,2015,2017,2018,2022,2024];
+const YEARNOTE={2013:'Flown 2012–13, 12.5 cm',2015:'2015, 12.5 cm',2017:'2017, 12.5 cm',2018:'2018, 12.5 cm',2022:'2022, 12.5 cm',2024:'2024, 10 cm'};
+const LOCAL_YEARS={}; // images loaded so far
+let yearA=2024, yearB=2013, comparing=false;
+function yearSrc(y){return y===2024?IMG.aerial:'imagery/aerial-'+y+'.jpg'}
+function loadYearImg(y){
+  if(LOCAL_YEARS[y]) return Promise.resolve(LOCAL_YEARS[y]);
+  return new Promise((res,rej)=>{const im=new Image();im.onload=()=>{LOCAL_YEARS[y]=im;res(im)};im.onerror=()=>rej(new Error('Could not load the '+y+' photo'));im.src=yearSrc(y)});
+}
+function paint(canvasId,im){const c=document.getElementById(canvasId);c.width=im.naturalWidth;c.height=im.naturalHeight;c.getContext('2d').drawImage(im,0,0)}
+async function setYearA(y){
+  yearA=y; renderYears();
+  if(baseMode==='linz'){setBase('linz');return}
+  try{const im=await loadYearImg(y); paint('cv-aerial',im); imgReady.aerial=true;
+    if(baseMode!=='aerial'){document.getElementById('base-aerial').checked=true}
+    setBase('aerial');
+  }catch(e){tilenote.textContent=e.message+'. The year photos sit beside the page in an imagery folder.';tilenote.hidden=false}
+  updateTags();
+}
+// --- compare (swipe) map
+let map2=null, swipeX=.5;
+const IMGBOX2=()=>IMGBOX;
+function map2Style(){return {version:8,sources:{b:{type:'canvas',canvas:'cv-b',coordinates:IMGBOX,animate:false}},layers:[{id:'bg',type:'background',paint:{'background-color':'#f4f5f3'}},{id:'b',type:'raster',source:'b',paint:{'raster-fade-duration':0}}]}}
+async function setYearB(y){
+  yearB=y; renderYears();
+  try{const im=await loadYearImg(y); paint('cv-b',im);
+    if(map2) map2.setStyle(map2Style(),{diff:false});
+  }catch(e){tilenote.textContent=e.message;tilenote.hidden=false}
+  updateTags();
+}
+function syncMap2(){ if(map2) map2.jumpTo({center:map.getCenter(),zoom:map.getZoom(),bearing:map.getBearing(),pitch:map.getPitch()}) }
+function placeSwipe(){
+  const w=document.getElementById('mapwrap').clientWidth, x=Math.round(swipeX*w);
+  document.getElementById('swipe').style.left=x+'px';
+  document.getElementById('map2').style.clipPath=`inset(0 0 0 ${x}px)`;
+  const tA=document.getElementById('tagA'), tB=document.getElementById('tagB');
+  tA.style.left='8px'; tB.style.left=(x+8)+'px';
+}
+function updateTags(){
+  const tA=document.getElementById('tagA'), tB=document.getElementById('tagB');
+  tA.hidden=!comparing; tB.hidden=!comparing;
+  tA.textContent=yearA; tB.textContent=yearB;
+}
+async function toggleCompare(){
+  comparing=!comparing;
+  document.getElementById('map2').hidden=!comparing; document.getElementById('swipe').hidden=!comparing;
+  if(comparing){
+    if(baseMode!=='aerial'){document.getElementById('base-aerial').checked=true; await setYearA(yearA)}
+    try{paint('cv-b',await loadYearImg(yearB))}catch(e){}
+    if(!map2){
+      map2=new maplibregl.Map({container:'map2',style:map2Style(),interactive:false,attributionControl:false,center:map.getCenter(),zoom:map.getZoom()});
+      map.on('move',syncMap2);
+    } else { map2.resize(); map2.setStyle(map2Style(),{diff:false}) }
+    syncMap2(); placeSwipe();
+  }
+  renderYears(); updateTags();
+}
+// drag the divider
+(function(){
+  const sw=document.getElementById('swipe'), wrap=document.getElementById('mapwrap'); let drag=false;
+  const move=e=>{ if(!drag) return; const r=wrap.getBoundingClientRect(); const cx=(e.touches?e.touches[0].clientX:e.clientX); swipeX=Math.min(.98,Math.max(.02,(cx-r.left)/r.width)); placeSwipe(); e.preventDefault(); };
+  sw.addEventListener('pointerdown',e=>{drag=true;sw.setPointerCapture(e.pointerId)});
+  sw.addEventListener('pointermove',move); sw.addEventListener('pointerup',()=>drag=false);
+  document.getElementById('swipe-btn').addEventListener('keydown',e=>{ if(e.key==='ArrowLeft'||e.key==='ArrowRight'){swipeX=Math.min(.98,Math.max(.02,swipeX+(e.key==='ArrowLeft'?-.05:.05)));placeSwipe();e.preventDefault()} });
+  new ResizeObserver(()=>{ if(comparing){map2&&map2.resize();placeSwipe()} }).observe(wrap);
+})();
+function renderYears(){
+  const box=document.getElementById('years');
+  let h=YEARS.map(y=>`<button type="button" data-y="${y}" aria-pressed="${y===yearA&&(baseMode==='aerial'||baseMode==='linz')}" title="${YEARNOTE[y]}">${y}</button>`).join('');
+  h+=`<span class="sep"></span><button type="button" id="cmp" class="${comparing?'cmp-on':''}" aria-pressed="${comparing}">${comparing?'Stop comparing':'Compare two years'}</button>`;
+  if(comparing) h+=` <label class="hint" style="display:flex;gap:4px;align-items:center">right side <select id="yB">${YEARS.map(y=>`<option${y===yearB?' selected':''}>${y}</option>`).join('')}</select></label>`;
+  box.innerHTML=h;
+}
+document.getElementById('years').addEventListener('click',e=>{const y=e.target.dataset&&e.target.dataset.y; if(y) setYearA(+y); if(e.target.id==='cmp') toggleCompare()});
+document.getElementById('years').addEventListener('change',e=>{ if(e.target.id==='yB') setYearB(+e.target.value) });
+document.querySelectorAll('input[name=base]').forEach(r=>r.addEventListener('change',()=>{ renderYears(); if(comparing&&r.value!=='aerial'&&r.value!=='linz') toggleCompare() }));
+renderYears();
+
+// --- date filter for sightings and annotations
+const M0=new Date(2013,8,1); // Sep 2013, first sighting
+const NOW=new Date(); const NM=(NOW.getFullYear()-M0.getFullYear())*12+NOW.getMonth()-M0.getMonth();
+const monthStr=i=>{const d=new Date(M0.getFullYear(),M0.getMonth()+i,1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')};
+const monthLabel=i=>{const d=new Date(M0.getFullYear(),M0.getMonth()+i,1);return d.toLocaleDateString('en-NZ',{month:'short',year:'numeric'})};
+const tFrom=document.getElementById('t-from'), tTo=document.getElementById('t-to');
+[tFrom,tTo].forEach(el=>{el.min=0;el.max=NM;el.step=1}); tFrom.value=0; tTo.value=NM;
+function range(){let a=+tFrom.value,b=+tTo.value; if(a>b)[a,b]=[b,a]; return [a,b]}
+function timeExpr(){const [a,b]=range(); const lo=monthStr(a)+'-01', hi=monthStr(b)+'-31';
+  return ['all',['>=',['to-string',['get','date']],lo],['<=',['to-string',['get','date']],hi]]}
+function annTimeExpr(){const [a,b]=range(); const lo=monthStr(a)+'-01', hi=monthStr(b)+'-31';
+  return ['any',['!',['has','added']],['all',['>=',['slice',['to-string',['get','added']],0,10],lo],['<=',['slice',['to-string',['get','added']],0,10],hi]]]}
+const ANNGEOM={'ann-fill':['==',['geometry-type'],'Polygon'],'ann-line':['!=',['geometry-type'],'Point'],'ann-pt':['==',['geometry-type'],'Point']};
+function applyTime(){
+  if(map.getLayer('inat_obs')) map.setFilter('inat_obs',timeExpr());
+  Object.entries(ANNGEOM).forEach(([id,g])=>{ if(map.getLayer(id)) map.setFilter(id,['all',g,annTimeExpr()]) });
+  const [a,b]=range(); const lo=monthStr(a), hi=monthStr(b);
+  const n=DATA.inat_obs.features.filter(f=>{const m=(f.properties.date||'').slice(0,7);return m>=lo&&m<=hi}).length;
+  document.getElementById('t-read').textContent=`${monthLabel(a)} – ${monthLabel(b)} · ${n} of ${DATA.inat_obs.features.length} sightings`;
+  const f=document.getElementById('dualfill'), w=document.getElementById('dual').clientWidth-16;
+  f.style.left=(8+w*a/NM)+'px'; f.style.width=Math.max(2,w*(b-a)/NM)+'px';
+  drawHist();
+}
+// histogram: sightings per quarter, one hue, out-of-range bars recede
+function drawHist(){
+  const el=document.getElementById('hist'); const W=el.clientWidth||600, H=64, padB=14;
+  const Q=Math.floor(NM/3)+1, counts=new Array(Q).fill(0);
+  DATA.inat_obs.features.forEach(f=>{const d=f.properties.date; if(!d) return; const i=(+d.slice(0,4)-M0.getFullYear())*12+(+d.slice(5,7)-1)-M0.getMonth(); if(i>=0&&i<=NM) counts[Math.floor(i/3)]++});
+  const max=Math.max(...counts,1), bw=(W-16)/Q, [a,b]=range();
+  let svg=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Sightings per quarter, ${monthLabel(0)} to ${monthLabel(NM)}">`;
+  svg+=`<line class="base" x1="8" x2="${W-8}" y1="${H-padB}" y2="${H-padB}"/>`;
+  counts.forEach((c,i)=>{ if(!c) return; const h=Math.max(2,(H-padB-4)*c/max), x=8+i*bw+1, w=Math.max(1,bw-2), y=H-padB-h;
+    const inR=(i*3+2)>=a&&(i*3)<=b; const r=Math.min(2,w/2);
+    svg+=`<path class="bar${inR?'':' out'}" data-i="${i}" data-c="${c}" d="M${x},${H-padB}V${y+r}Q${x},${y} ${x+r},${y}H${x+w-r}Q${x+w},${y} ${x+w},${y+r}V${H-padB}Z"/>`;});
+  for(let yr=M0.getFullYear()+1; yr<=NOW.getFullYear(); yr++){ const i=((yr-M0.getFullYear())*12-M0.getMonth())/3; if(i<0||i>Q) continue; const x=8+i*bw;
+    if((yr-M0.getFullYear())%2===1||W>700) svg+=`<text class="axis" x="${x}" y="${H-2}" text-anchor="middle">${yr}</text>`; }
+  svg+=`<text class="axis" x="8" y="9">${max} a quarter</text></svg>`;
+  el.innerHTML=svg+'<span class="tip" id="htip" hidden></span>';
+}
+document.getElementById('hist').addEventListener('mousemove',e=>{const t=document.getElementById('htip'); const i=e.target.dataset&&e.target.dataset.i;
+  if(i===undefined){t.hidden=true;return} const q=+i; const s=monthLabel(q*3), en=monthLabel(Math.min(NM,q*3+2));
+  t.textContent=`${s} – ${en}: ${e.target.dataset.c} sighting${e.target.dataset.c==='1'?'':'s'}`; const r=e.currentTarget.getBoundingClientRect(); t.style.left=(e.clientX-r.left)+'px'; t.style.top=(e.clientY-r.top)+'px'; t.hidden=false});
+document.getElementById('hist').addEventListener('mouseleave',()=>{const t=document.getElementById('htip'); if(t) t.hidden=true});
+document.getElementById('hist').addEventListener('click',e=>{const i=e.target.dataset&&e.target.dataset.i; if(i===undefined) return; tFrom.value=+i*3; tTo.value=Math.min(NM,+i*3+2); stopPlay(); applyTime()});
+[tFrom,tTo].forEach(el=>el.addEventListener('input',()=>{stopPlay();applyTime()}));
+document.getElementById('t-all').addEventListener('click',()=>{stopPlay();tFrom.value=0;tTo.value=NM;applyTime()});
+let playT=null;
+function stopPlay(){ if(playT){clearInterval(playT);playT=null;document.getElementById('t-play').textContent='▶ Play by year'} }
+document.getElementById('t-play').addEventListener('click',()=>{
+  if(playT){stopPlay();return}
+  let yr=M0.getFullYear(); const step=()=>{ const a=Math.max(0,(yr-M0.getFullYear())*12-M0.getMonth()), b=Math.min(NM,a+11-(yr===M0.getFullYear()?(12-M0.getMonth())-12+M0.getMonth():0));
+    tFrom.value=a; tTo.value=Math.min(NM,(yr-M0.getFullYear())*12-M0.getMonth()+11); applyTime(); yr++; if(yr>NOW.getFullYear()) stopPlay(); };
+  document.getElementById('t-play').textContent='■ Stop'; step(); playT=setInterval(step,1300);
+});
+window.addEventListener('resize',()=>applyTime());
+
 // ---------- shared annotations (Google Sheet via /api/annotations on the hosted site) ----------
 let SHARED=false, lastLoad=new Date();
 const API='/api/annotations', amsg=document.getElementById('a-msg'), codeEl=document.getElementById('a-code');
@@ -611,6 +797,7 @@ async function deleteFeature(i){
 }
 document.getElementById('a-refresh').addEventListener('click',loadShared);
 renderAnnList();
+applyTime();
 loadShared();
 
 // ---------- findings ----------

@@ -10,7 +10,7 @@ Live site: https://nz-map-lab.pages.dev
 |---|---|
 | `index.html` | The map. One self-contained page: data, aerial photo and elevation image are built in. Only MapLibre GL JS loads from cdnjs. |
 | `data/` | Each layer as GeoJSON, clipped to the square, for use in QGIS or other tools. |
-| `imagery/` | The 2024 aerial photo and 2018 LiDAR elevation shading used in the page. |
+| `imagery/` | Aerial photos for each year (2013, 2015, 2017, 2018, 2022; 2024 is built into the page) and the 2018 LiDAR elevation shading. |
 | `scripts/` | The Python scripts that fetched, clipped and derived the data, plus the page template. Paths in them point to the original working folder. |
 
 ## Layers and sources
@@ -23,7 +23,7 @@ Live site: https://nz-map-lab.pages.dev
 | 200-year flood model | [Horizons Regional Council](https://www.horizons.govt.nz) | CC BY 4.0 |
 | Liquefaction, groundwater bore, water management areas, S-map soils | [Horizons Regional Council](https://www.horizons.govt.nz) | Not stated in the service |
 | Land cover (LCDB) | [Manaaki Whenua – Landcare Research](https://www.landcareresearch.co.nz), served by [Eagle Technology](https://www.eagle.co.nz) | CC BY 4.0 |
-| Aerial photo 2024 (Palmerston North 0.1 m urban) | [Toitū Te Whenua LINZ](https://www.linz.govt.nz) | CC BY 4.0 |
+| Aerial photos 2012–13, 2015, 2017, 2018, 2022 (12.5 cm) and 2024 (10 cm), Palmerston North urban | [Toitū Te Whenua LINZ](https://www.linz.govt.nz) | CC BY 4.0 |
 | LiDAR 2018 (DEM and DSM, 1 m), contours and tree canopy derived from it | [Toitū Te Whenua LINZ](https://www.linz.govt.nz), via the open elevation store on AWS | CC BY 4.0 |
 
 Data downloaded 17 October 2026. The groundwater bore owner's name was removed from the source data.
