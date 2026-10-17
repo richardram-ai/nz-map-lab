@@ -164,7 +164,7 @@ footer{font-size:.78rem;color:var(--muted);border-top:1px solid var(--rule);padd
       <label><input type="radio" name="base" id="base-aerial" value="aerial" checked> Aerial photo 2024</label>
       <label><input type="radio" name="base" id="base-osm" value="osm"> Street map</label>
       <label><input type="radio" name="base" id="base-ofm" value="ofm"> OpenFreeMap tiles</label>
-      <label><input type="radio" name="base" id="base-linz" value="linz"> LINZ live tiles</label>
+      <label><input type="radio" name="base" id="base-linz" value="linz"> LINZ full-detail photo</label>
       <input type="text" id="linzkey" placeholder="LINZ Data Service key" aria-label="LINZ Data Service API key">
     </div>
     <p class="notice no-print" id="tilenote" hidden></p>
@@ -378,6 +378,9 @@ Promise.all([drawImg('aerial'),drawImg('elev')]).then(()=>{
 const tilenote=document.getElementById('tilenote');
 let keyVal=''; try{keyVal=localStorage.getItem('linz-key')||''}catch(e){}
 document.getElementById('linzkey').value=keyVal;
+// On the hosted site the key is added by a Cloudflare function, so the box is only needed when the file is opened from a computer.
+const LOCAL_FILE=location.protocol==='file:';
+document.getElementById('linzkey').hidden=!LOCAL_FILE;
 function setBase(mode){
   baseMode=mode; tilenote.hidden=true;
   if(mode==='osm'||mode==='aerial') LAYERS.filter(l=>l.base).forEach(l=>{const c=document.getElementById('chk-'+l.id); if(c) c.checked=(mode==='osm')});
@@ -385,6 +388,10 @@ function setBase(mode){
   if(mode==='aerial'){ if(imgReady.aerial) map.setStyle(aerialStyle(),{diff:false}); }
   if(mode==='ofm') tryVector();
   if(mode==='linz'){
+    if(!LOCAL_FILE){
+      map.setStyle(rasterStyle(location.origin+'/linz/aerial/{z}/{x}/{y}.png','© Toitū Te Whenua LINZ, CC BY 4.0',21),{diff:false});
+      return;
+    }
     const k=document.getElementById('linzkey').value.trim();
     if(!k){tilenote.textContent='Paste your LINZ Data Service key first. The key stays in this browser.';tilenote.hidden=false;document.getElementById('base-aerial').checked=true;setBase('aerial');return}
     try{localStorage.setItem('linz-key',k)}catch(e){}

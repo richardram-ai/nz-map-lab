@@ -30,7 +30,7 @@ Data downloaded 17 October 2026. The groundwater bore owner's name was removed f
 
 ## Keys
 
-No API keys are stored in this repository. The "LINZ live tiles" option asks the viewer for a LINZ Data Service key and keeps it in their browser only.
+No API keys are stored in this repository. On the hosted site, the "LINZ full-detail photo" option loads tiles through `functions/linz/aerial/[[path]].js`, a Cloudflare Pages Function that adds the LINZ Data Service key from the Cloudflare secret `LINZ_KEY`. It only serves tiles around the test square. When the page is opened as a file from a computer, it asks for a key instead and keeps it in that browser only.
 
 ## Annotations
 
