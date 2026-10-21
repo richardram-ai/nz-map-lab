@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en-NZ">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Add a Record · NZ Map Lab</title>
+<meta name="theme-color" content="#2c7a4b">
+<link rel="manifest" href="/add/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/add/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Map Lab">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.css">
+<style>
+/* Layout: phone-first single column — map with your position, then the record form, with Save fixed to the bottom. */
+:root{
+  --bg:#ffffff; --ink:#1b2722; --muted:#5a6862; --rule:#d3dcd7; --soft:#f2f6f4;
+  --accent:#2c7a4b; --accent-ink:#ffffff; --water:#28699a; --alert:#b8334a; --warn:#a8661a;
+  --font:"Aptos","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111715; --ink:#e2eae6; --muted:#9caba4; --rule:#33403a; --soft:#1a2320;
+  --accent:#5fb882; --accent-ink:#0c1410; --water:#6aa8d6; --alert:#e66a7f; --warn:#d89a4c; color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#111715; --ink:#e2eae6; --muted:#9caba4; --rule:#33403a; --soft:#1a2320;
+  --accent:#5fb882; --accent-ink:#0c1410; --water:#6aa8d6; --alert:#e66a7f; --warn:#d89a4c; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.4;
+  padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+header{display:flex;align-items:center;gap:10px;padding:10px max(14px,env(safe-area-inset-left,0px)) 8px max(14px,env(safe-area-inset-right,0px));
+  padding-top:calc(10px + env(safe-area-inset-top,0px));border-bottom:2px solid var(--accent)}
+header b{font-size:1.05rem}
+header span{color:var(--muted);font-size:.85rem}
+header a{margin-left:auto;font-size:.85rem;color:var(--water)}
+main{display:flex;flex-direction:column;gap:16px;padding:12px max(14px,env(safe-area-inset-left,0px)) 12px max(14px,env(safe-area-inset-right,0px));max-width:640px;margin:0 auto}
+#map{height:42vh;min-height:230px;border:1px solid var(--rule);border-radius:6px;background:#e9ece9}
+.loc{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:.9rem}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;border:1.5px solid var(--rule);font-variant-numeric:tabular-nums}
+.chip.good{border-color:var(--accent);color:var(--accent)} .chip.fair{border-color:var(--warn);color:var(--warn)} .chip.bad{border-color:var(--alert);color:var(--alert)}
+.chip i{width:8px;height:8px;border-radius:50%;background:currentColor;display:inline-block}
+.hint{font-size:.82rem;color:var(--muted)}
+fieldset{border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+legend,label.lab{font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);padding:0;margin-bottom:2px}
+.cats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.cats button{display:flex;align-items:center;gap:8px;justify-content:flex-start;font:inherit;font-size:.95rem;padding:12px 12px;border-radius:8px;border:1.5px solid var(--rule);background:var(--bg);color:var(--ink);text-align:left;min-height:48px}
+.cats button i{width:12px;height:12px;border-radius:50%;background:var(--c);flex:none}
+.cats button[aria-pressed="true"]{border-color:var(--c);box-shadow:inset 0 0 0 1.5px var(--c);font-weight:700}
+input[type=text],input[type=password],textarea{font:inherit;font-size:16px;width:100%;padding:11px 12px;border:1.5px solid var(--rule);border-radius:8px;background:var(--bg);color:var(--ink)}
+input:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+textarea{min-height:76px;resize:vertical}
+.btn{font:inherit;font-size:.95rem;padding:10px 14px;border-radius:8px;border:1.5px solid var(--rule);background:var(--bg);color:var(--ink);min-height:44px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.photos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.ph{position:relative;display:flex;flex-direction:column;gap:4px;min-width:0}
+.ph img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:6px;border:1px solid var(--rule);display:block}
+.ph input{font-size:14px;padding:6px 8px}
+.ph button.x{position:absolute;top:4px;right:4px;width:28px;height:28px;border-radius:50%;border:0;background:rgba(0,0,0,.6);color:#fff;font-size:16px;line-height:28px;padding:0}
+.ph .meta{font-size:.72rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+details{border:1px solid var(--rule);border-radius:8px;padding:10px 12px}
+details summary{cursor:pointer;font-size:.9rem;color:var(--muted)}
+details[open] summary{margin-bottom:10px}
+.savebar{position:fixed;left:0;right:0;bottom:0;background:var(--bg);border-top:1px solid var(--rule);
+  padding:10px max(14px,env(safe-area-inset-left,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(14px,env(safe-area-inset-right,0px));display:flex;gap:10px;align-items:center;z-index:20}
+.savebar .btn.primary{flex:1;min-height:52px;font-size:1.05rem}
+.savebar .status{font-size:.82rem;color:var(--muted);max-width:45%}
+.msg{padding:10px 12px;border-radius:8px;border-left:4px solid var(--accent);background:var(--soft);font-size:.92rem}
+.msg.err{border-left-color:var(--alert)}
+.msg.warn{border-left-color:var(--warn)}
+.sent{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:.88rem}
+.sent li{display:flex;gap:8px;align-items:baseline;border-bottom:1px dotted var(--rule);padding-bottom:6px}
+.sent .tick{color:var(--accent);font-weight:700} .sent .wait{color:var(--warn);font-weight:700} .sent .fail{color:var(--alert);font-weight:700}
+.maplibregl-ctrl-attrib{font-size:10px}
+.pin{width:22px;height:22px;border-radius:50% 50% 50% 0;background:var(--alert);transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.5)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header><b>NZ Map Lab</b><span>Add a record</span><a href="/">Open the map</a></header>
+<main>
+  <div id="map" role="region" aria-label="Map showing where this record will be placed"></div>
+  <div class="loc" aria-live="polite">
+    <span class="chip" id="locchip"><i></i><span id="loctext">Finding your location…</span></span>
+    <button class="btn" type="button" id="relocate">Use my location</button>
+  </div>
+  <p class="hint" id="lochint">Drag the red pin, or tap the map, if it isn't quite where the thing is.</p>
+  <div class="msg warn" id="outside" hidden>You're outside the mapped area. Records can only be saved inside the dashed square.</div>
+
+  <fieldset>
+    <legend>What is it?</legend>
+    <div class="cats" id="cats"></div>
+  </fieldset>
+
+  <fieldset>
+    <label class="lab" for="title">Title</label>
+    <input type="text" id="title" maxlength="80" placeholder="e.g. Tūī in the kōwhai" autocomplete="off" enterkeyhint="next">
+    <label class="lab" for="note">Note <span style="text-transform:none;letter-spacing:0;font-weight:400">(optional)</span></label>
+    <textarea id="note" maxlength="400" placeholder="Anything worth knowing"></textarea>
+  </fieldset>
+
+  <fieldset>
+    <legend>Photos <span style="text-transform:none;letter-spacing:0;font-weight:400">(up to 3)</span></legend>
+    <div class="row">
+      <label class="btn" for="cam">Take photo</label><input type="file" id="cam" accept="image/*" capture="environment" hidden>
+      <label class="btn" for="gal">Choose from phone</label><input type="file" id="gal" accept="image/*" multiple hidden>
+      <button class="btn" type="button" id="usephotoloc" hidden>Place at photo's location</button>
+    </div>
+    <div class="photos" id="photos"></div>
+    <p class="hint" id="phhint">Photos are shrunk on your phone before sending. Their time and location are kept; other hidden details are removed.</p>
+  </fieldset>
+
+  <details id="settings">
+    <summary id="setsum">Your name and editing code</summary>
+    <fieldset>
+      <label class="lab" for="by">Your name</label>
+      <input type="text" id="by" maxlength="60" autocomplete="name">
+      <label class="lab" for="code">Editing code</label>
+      <input type="password" id="code" autocomplete="off">
+      <p class="hint">Saved on this phone so you only enter them once.</p>
+    </fieldset>
+  </details>
+
+  <div class="msg" id="flash" role="status" hidden></div>
+
+  <section aria-label="Sent from this phone" id="sentbox" hidden>
+    <div class="row" style="justify-content:space-between"><span class="lab" style="font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)">From this phone</span>
+      <button class="btn" type="button" id="sendnow" hidden>Send now</button></div>
+    <ul class="sent" id="sent"></ul>
+  </section>
+</main>
+<div class="savebar"><span class="status" id="qstatus"></span><button class="btn primary" type="button" id="save">Save record</button></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/full.umd.js"></script>
+<script>
+// ---- Organisation settings. Later this comes from the organisation's settings file.
+const CONFIG = {
+  name: 'NZ Map Lab test square',
+  area: { west: 175.598, south: -40.364, east: 175.641, north: -40.335 },
+  square: [[175.613645,-40.354261],[175.625433,-40.345252]],
+  centre: [175.6195385,-40.349756],
+  categories: [
+    { id: 'Observation', label: 'Observation', color: '#28699a' },
+    { id: 'Planting', label: 'Planting', color: '#2c7a4b' },
+    { id: 'Pest or weed', label: 'Pest or weed', color: '#b8334a' },
+    { id: 'Issue', label: 'Issue', color: '#c47d14' },
+  ],
+  maxPhotos: 3, photoMaxPx: 1600, photoQuality: 0.8,
+};
+const $ = id => document.getElementById(id);
+const store = { get(k,d=''){try{return localStorage.getItem(k)??d}catch(e){return d}}, set(k,v){try{localStorage.setItem(k,v)}catch(e){}} };
+
+// ---- Device label (for troubleshooting only)
+function deviceLabel(){
+  const ua=navigator.userAgent;
+  const os=/iPhone/.test(ua)?'iPhone':/iPad/.test(ua)?'iPad':/Android/.test(ua)?'Android':/Mac/.test(ua)?'Mac':/Windows/.test(ua)?'Windows':'Other';
+  const br=/CriOS|Chrome/.test(ua)&&!/Edg/.test(ua)?'Chrome':/Edg/.test(ua)?'Edge':/Firefox|FxiOS/.test(ua)?'Firefox':/Safari/.test(ua)?'Safari':'Browser';
+  return os+', '+br;
+}
+
+// ---- Map
+const map = new maplibregl.Map({
+  container:'map', center:CONFIG.centre, zoom:16.3, attributionControl:{compact:true},
+  maxBounds:[[CONFIG.area.west,CONFIG.area.south],[CONFIG.area.east,CONFIG.area.north]],
+  style:{version:8,sources:{
+    aer:{type:'raster',tiles:[location.origin+'/linz/aerial/{z}/{x}/{y}.png?year=2024'],tileSize:256,minzoom:12,maxzoom:21,attribution:'© Toitū Te Whenua LINZ, CC BY 4.0'}},
+    layers:[{id:'bg',type:'background',paint:{'background-color':'#e9ece9'}},{id:'aer',type:'raster',source:'aer'}]}
+});
+map.addControl(new maplibregl.NavigationControl({showCompass:false}),'top-right');
+const sq=CONFIG.square;
+map.on('load',()=>{
+  map.addSource('sq',{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:[[sq[0][0],sq[0][1]],[sq[1][0],sq[0][1]],[sq[1][0],sq[1][1]],[sq[0][0],sq[1][1]],[sq[0][0],sq[0][1]]]}}});
+  map.addLayer({id:'sq',type:'line',source:'sq',paint:{'line-color':'#ffffff','line-width':2,'line-dasharray':[3,2]}});
+  map.addSource('acc',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+  map.addLayer({id:'acc',type:'fill',source:'acc',paint:{'fill-color':'#28699a','fill-opacity':.18}});
+  map.addLayer({id:'accl',type:'line',source:'acc',paint:{'line-color':'#28699a','line-width':1.5}});
+});
+const pinEl=document.createElement('div'); pinEl.className='pin';
+const marker=new maplibregl.Marker({element:pinEl,draggable:true,anchor:'bottom-left',offset:[-11,0]}).setLngLat(CONFIG.centre);
+let markerShown=false;
+
+// ---- Position state
+let fix=null;           // best recent GPS fix
+let pos=null;           // {lon,lat,source:'gps'|'moved'|'photo'|'map',accuracy}
+let follow=true;        // pin follows GPS until the person moves it
+function circle(lon,lat,r){const pts=[],n=48,dLat=r/111320,dLon=r/(111320*Math.cos(lat*Math.PI/180));for(let i=0;i<=n;i++){const a=i/n*2*Math.PI;pts.push([lon+dLon*Math.cos(a),lat+dLat*Math.sin(a)])}return{type:'Feature',geometry:{type:'Polygon',coordinates:[pts]}}}
+function inArea(lon,lat){const a=CONFIG.area;return lon>=a.west&&lon<=a.east&&lat>=a.south&&lat<=a.north}
+function setPos(p,{fly=false}={}){
+  pos=p; marker.setLngLat([p.lon,p.lat]); if(!markerShown){marker.addTo(map);markerShown=true}
+  if(fly) map.easeTo({center:[p.lon,p.lat],zoom:Math.max(map.getZoom(),17.5),duration:600});
+  const src=map.getSource('acc'); if(src) src.setData(p.source==='gps'&&p.accuracy?circle(p.lon,p.lat,p.accuracy):{type:'FeatureCollection',features:[]});
+  const chip=$('locchip'), t=$('loctext'); chip.className='chip';
+  if(p.source==='gps'){ const a=Math.round(p.accuracy); t.textContent=`Your location · ±${a} m`; chip.classList.add(a<=10?'good':a<=30?'fair':'bad'); }
+  else if(p.source==='photo'){ t.textContent='From the photo’s location'; chip.classList.add('fair'); }
+  else { t.textContent='Placed by hand'; chip.classList.add('fair'); }
+  $('outside').hidden=inArea(p.lon,p.lat);
+}
+marker.on('dragend',()=>{const l=marker.getLngLat(); follow=false; setPos({lon:l.lng,lat:l.lat,source:'moved',accuracy:null})});
+map.on('click',e=>{follow=false; setPos({lon:e.lngLat.lng,lat:e.lngLat.lat,source:'map',accuracy:null})});
+function startGPS(){
+  if(!('geolocation' in navigator)){ $('loctext').textContent='Location isn’t available on this device. Tap the map to place the record.'; return }
+  navigator.geolocation.watchPosition(p=>{
+    const c=p.coords; const f={lon:c.longitude,lat:c.latitude,accuracy:c.accuracy,altitude:c.altitude,heading:c.heading,time:p.timestamp};
+    // keep the better of the last fix and this one, unless the last is more than 30 s old
+    if(!fix||f.accuracy<=fix.accuracy||Date.now()-fix.time>30000) fix=f;
+    if(follow) setPos({lon:fix.lon,lat:fix.lat,source:'gps',accuracy:fix.accuracy},{fly:!pos});
+  },err=>{
+    $('loctext').textContent = err.code===1 ? 'Location is turned off for this site. Tap the map to place the record.' : 'Can’t get a location fix yet. Tap the map to place the record.';
+    $('locchip').className='chip bad';
+  },{enableHighAccuracy:true,maximumAge:5000,timeout:30000});
+}
+$('relocate').addEventListener('click',()=>{follow=true; if(fix) setPos({lon:fix.lon,lat:fix.lat,source:'gps',accuracy:fix.accuracy},{fly:true}); else startGPS()});
+
+// ---- Categories
+let cat=store.get('nzml-last-cat',CONFIG.categories[0].id);
+function renderCats(){ $('cats').innerHTML=CONFIG.categories.map(c=>`<button type="button" data-c="${c.id}" style="--c:${c.color}" aria-pressed="${c.id===cat}"><i></i>${c.label}</button>`).join('') }
+$('cats').addEventListener('click',e=>{const b=e.target.closest('button'); if(!b) return; cat=b.dataset.c; store.set('nzml-last-cat',cat); renderCats()});
+renderCats();
+
+// ---- Name and code
+$('by').value=store.get('map-by'); $('code').value=store.get('map-edit-code');
+['by','code'].forEach(id=>$(id).addEventListener('change',()=>{store.set(id==='by'?'map-by':'map-edit-code',$(id).value.trim()); setSummary()}));
+function setSummary(){ const b=$('by').value.trim(), c=$('code').value.trim();
+  $('setsum').textContent = b&&c ? `Saving as ${b}` : 'Your name and editing code (needed to save)';
+  if(!b||!c) $('settings').open=true; }
+setSummary();
+
+// ---- Photos: read time and place, shrink, strip everything else
+let photos=[]; // {blob,url,caption,taken,lat,lon}
+async function addFiles(files){
+  for(const file of files){
+    if(photos.length>=CONFIG.maxPhotos){ flash(`Up to ${CONFIG.maxPhotos} photos per record.`,'warn'); break }
+    let taken='',lat=null,lon=null;
+    try{ const ex=await exifr.parse(file,['DateTimeOriginal','CreateDate']);
+      const d=ex&&(ex.DateTimeOriginal||ex.CreateDate); if(d instanceof Date&&!isNaN(d)) taken=d.toISOString(); }catch(e){}
+    try{ const g=await exifr.gps(file);
+      if(g&&typeof g.latitude==='number'&&typeof g.longitude==='number'){lat=+g.latitude.toFixed(6);lon=+g.longitude.toFixed(6)} }catch(e){}
+    try{
+      const bmp=await createImageBitmap(file,{imageOrientation:'from-image'});
+      const s=Math.min(1,CONFIG.photoMaxPx/Math.max(bmp.width,bmp.height));
+      const cv=document.createElement('canvas'); cv.width=Math.round(bmp.width*s); cv.height=Math.round(bmp.height*s);
+      cv.getContext('2d').drawImage(bmp,0,0,cv.width,cv.height);
+      const blob=await new Promise(r=>cv.toBlob(r,'image/jpeg',CONFIG.photoQuality));
+      photos.push({blob,url:URL.createObjectURL(blob),caption:'',taken,lat,lon});
+    }catch(e){ flash('That photo couldn’t be read. If it’s a HEIC file, try taking it again with this form, or choose a JPEG.','err') }
+  }
+  renderPhotos();
+}
+function renderPhotos(){
+  $('photos').innerHTML=photos.map((p,i)=>`<div class="ph"><img src="${p.url}" alt="Photo ${i+1}"><button type="button" class="x" data-x="${i}" aria-label="Remove photo ${i+1}">×</button>
+    <input type="text" data-cap="${i}" maxlength="120" placeholder="Caption" value="${(p.caption||'').replace(/"/g,'&quot;')}">
+    <span class="meta">${p.taken?new Date(p.taken).toLocaleString('en-NZ',{day:'numeric',month:'short',hour:'numeric',minute:'2-digit'}):'No time in photo'}${p.lat!=null?' · has location':''}</span></div>`).join('');
+  const withLoc=photos.find(p=>p.lat!=null&&inArea(p.lon,p.lat));
+  $('usephotoloc').hidden=!withLoc;
+}
+$('photos').addEventListener('click',e=>{const x=e.target.dataset.x; if(x!==undefined){URL.revokeObjectURL(photos[+x].url); photos.splice(+x,1); renderPhotos()}});
+$('photos').addEventListener('input',e=>{const c=e.target.dataset.cap; if(c!==undefined) photos[+c].caption=e.target.value});
+['cam','gal'].forEach(id=>$(id).addEventListener('change',e=>{addFiles([...e.target.files]); e.target.value=''}));
+$('usephotoloc').addEventListener('click',()=>{const p=photos.find(p=>p.lat!=null); if(!p) return; follow=false; setPos({lon:p.lon,lat:p.lat,source:'photo',accuracy:null},{fly:true})});
+
+// ---- Queue (IndexedDB) so records survive no signal and page closes
+const DB={db:null,
+  open(){return this.db?Promise.resolve(this.db):new Promise((res,rej)=>{const r=indexedDB.open('nzmaplab',1);r.onupgradeneeded=()=>r.result.createObjectStore('queue',{keyPath:'qid'});r.onsuccess=()=>{this.db=r.result;res(this.db)};r.onerror=()=>rej(r.error)})},
+  async tx(mode,fn){const db=await this.open();return new Promise((res,rej)=>{const t=db.transaction('queue',mode);const st=t.objectStore('queue');const out=fn(st);t.oncomplete=()=>res(out&&out.result!==undefined?out.result:out);t.onerror=()=>rej(t.error)})},
+  put(item){return this.tx('readwrite',s=>s.put(item))}, del(qid){return this.tx('readwrite',s=>s.delete(qid))},
+  async all(){const db=await this.open();return new Promise((res,rej)=>{const r=db.transaction('queue').objectStore('queue').getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+};
+let sending=false;
+async function sendQueue(){
+  if(sending) return; sending=true;
+  try{
+    const items=(await DB.all()).sort((a,b)=>a.qid.localeCompare(b.qid));
+    for(const it of items){
+      if(it.state==='sent') continue;
+      const code=store.get('map-edit-code');
+      try{
+        // 1. photos first
+        for(const ph of it.photos){
+          if(ph.uploadedUrl) continue;
+          const r=await fetch('/api/photos',{method:'POST',body:ph.blob,headers:{'Content-Type':'image/jpeg','X-Edit-Code':code,
+            'X-Photo-Taken':ph.taken||'','X-Photo-Lat':ph.lat??'','X-Photo-Lon':ph.lon??'','X-By':encodeURIComponent(it.feature.properties.by||'')}});
+          const j=await r.json().catch(()=>({}));
+          if(!r.ok) throw Object.assign(new Error(j.error||('Photo upload failed ('+r.status+')')),{hard:r.status===403||r.status===413||r.status===415});
+          ph.uploadedUrl=j.url; await DB.put(it);
+        }
+        // 2. then the record
+        const f=structuredClone(it.feature);
+        f.properties.photos=it.photos.map(p=>({url:p.uploadedUrl,caption:p.caption,taken:p.taken,lat:p.lat,lon:p.lon}));
+        const r=await fetch('/api/annotations',{method:'POST',headers:{'Content-Type':'application/json','X-Edit-Code':code},body:JSON.stringify({action:'add',features:[f]})});
+        const j=await r.json().catch(()=>({}));
+        if(!r.ok||j.error) throw Object.assign(new Error(j.error||('Save failed ('+r.status+')')),{hard:r.status>=400&&r.status<500});
+        it.state='sent'; it.sentAt=new Date().toISOString(); it.error=''; it.photos.forEach(p=>p.blob=null); await DB.put(it);
+      }catch(e){
+        it.error = e.hard ? e.message : 'Waiting for signal'; it.state = e.hard ? 'failed' : 'waiting'; await DB.put(it);
+        if(!e.hard) break; // offline: stop and retry later
+      }
+    }
+  } finally { sending=false; renderQueue() }
+}
+async function renderQueue(){
+  let items=[]; try{items=(await DB.all()).sort((a,b)=>b.qid.localeCompare(a.qid))}catch(e){}
+  const pending=items.filter(i=>i.state!=='sent');
+  $('qstatus').textContent = pending.length ? `${pending.length} waiting to send` : (items.length?'All sent':'');
+  $('sendnow').hidden=!pending.length; $('sentbox').hidden=!items.length;
+  $('sent').innerHTML=items.slice(0,8).map(i=>{const p=i.feature.properties; const st=i.state==='sent'?'<span class="tick">✓ Sent</span>':i.state==='failed'?'<span class="fail">Not sent</span>':'<span class="wait">Waiting</span>';
+    return `<li>${st}<span>${esc(p.title)} · ${esc(p.cat)}${i.photos.length?` · ${i.photos.length} photo${i.photos.length>1?'s':''}`:''}${i.error&&i.state!=='sent'?`<br><span class="hint">${esc(i.error)}</span>`:''}</span></li>`}).join('');
+  // keep only the last 20 sent records on the phone
+  const old=items.filter(i=>i.state==='sent').slice(20); for(const o of old) DB.del(o.qid);
+}
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+$('sendnow').addEventListener('click',async()=>{ for(const it of await DB.all()) if(it.state==='failed'){it.state='waiting';await DB.put(it)} sendQueue() });
+window.addEventListener('online',sendQueue);
+setInterval(()=>{ if(navigator.onLine) sendQueue() },60000);
+
+// ---- Save
+function flash(t,kind=''){const f=$('flash'); f.textContent=t; f.className='msg'+(kind?' '+kind:''); f.hidden=false; clearTimeout(flash.t); flash.t=setTimeout(()=>f.hidden=true,6000)}
+$('save').addEventListener('click',async()=>{
+  const by=$('by').value.trim(), code=$('code').value.trim(), title=$('title').value.trim();
+  if(!by||!code){ $('settings').open=true; $(by?'code':'by').focus(); flash('Add your name and the editing code first.','err'); return }
+  if(!pos){ flash('Place the record on the map first: wait for your location or tap the map.','err'); return }
+  if(!inArea(pos.lon,pos.lat)){ flash('That spot is outside the mapped area.','err'); return }
+  if(!title){ $('title').focus(); flash('Give it a short title.','err'); return }
+  store.set('map-by',by); store.set('map-edit-code',code);
+  const feature={type:'Feature',geometry:{type:'Point',coordinates:[+pos.lon.toFixed(6),+pos.lat.toFixed(6)]},
+    properties:{title,cat,note:$('note').value.trim(),by,
+      meta:{accuracy_m:pos.source==='gps'?Math.round(pos.accuracy*10)/10:null,position:pos.source,captured:new Date().toISOString(),
+        altitude_m:pos.source==='gps'&&fix&&fix.altitude!=null?Math.round(fix.altitude):null,
+        heading:pos.source==='gps'&&fix&&fix.heading!=null&&!isNaN(fix.heading)?Math.round(fix.heading):null,
+        device:deviceLabel(),via:'phone'}}};
+  const item={qid:new Date().toISOString()+'-'+Math.random().toString(36).slice(2,6),state:'waiting',feature,
+    photos:photos.map(p=>({blob:p.blob,caption:p.caption,taken:p.taken,lat:p.lat,lon:p.lon}))};
+  try{ await DB.put(item) }catch(e){ flash('This phone couldn’t store the record. Check you’re not in a private browsing tab.','err'); return }
+  // reset the form for the next record
+  $('title').value=''; $('note').value=''; photos.forEach(p=>URL.revokeObjectURL(p.url)); photos=[]; renderPhotos();
+  follow=true; if(fix) setPos({lon:fix.lon,lat:fix.lat,source:'gps',accuracy:fix.accuracy});
+  flash(navigator.onLine?'Saved. Sending now…':'Saved on this phone. It will send when you have signal.');
+  window.scrollTo({top:0,behavior:'smooth'});
+  await renderQueue(); sendQueue();
+});
+
+startGPS(); renderQueue(); sendQueue();
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/add/sw.js',{scope:'/add/'}).catch(()=>{});
+</script>
+</body>
+</html>

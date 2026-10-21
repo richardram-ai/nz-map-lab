@@ -152,6 +152,12 @@ footer{font-size:.78rem;color:var(--muted);border-top:1px solid var(--rule);padd
 
 .maplibregl-popup-content{font-family:var(--font-body);font-size:.82rem;color:#1b2722;padding:10px 12px;max-width:260px}
 .maplibregl-popup-content b{display:block;font-size:.9rem;margin-bottom:2px}
+.maplibregl-popup-content .pp{display:flex;gap:4px;margin:6px 0}
+.maplibregl-popup-content .pp img{width:76px;height:76px;object-fit:cover;border-radius:4px;display:block}
+.maplibregl-popup-content .mm{display:block;color:#5a6862;font-size:.72rem;margin-top:4px}
+.phonebox{display:flex;gap:10px;align-items:center;border:1px solid var(--rule);padding:8px 10px;font-size:.82rem}
+.phonebox #qr{flex:none;width:84px;height:84px;background:#fff;padding:4px}
+.phonebox #qr img,.phonebox #qr canvas{width:76px!important;height:76px!important}
 .maplibregl-popup-content .src{color:#5a6862;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em}
 .maplibregl-ctrl-attrib{font-size:10px}
 
@@ -250,6 +256,7 @@ footer{font-size:.78rem;color:var(--muted);border-top:1px solid var(--rule);padd
       </form>
       <ul class="annlist" id="annlist"></ul>
       <p class="hint" id="annstore" role="status"></p>
+      <div class="phonebox no-print" id="phonebox" hidden><div id="qr" aria-hidden="true"></div><span>Recording in the field? Open <a id="phonelink" href="/add/">the phone form</a> on your phone, or scan this code. It uses your location and takes photos.</span></div>
       <div class="sharedbar no-print" id="sharedbar" hidden>
         <label for="a-code">Editing code</label><input id="a-code" type="password" autocomplete="off" placeholder="Needed to add or delete">
         <button type="button" id="a-refresh">Refresh</button>
@@ -299,6 +306,7 @@ footer{font-size:.78rem;color:var(--muted);border-top:1px solid var(--rule);padd
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 const DATA = /*__DATA__*/{};
 const IMG = /*__IMG__*/{};
@@ -521,6 +529,16 @@ function popupHTML(id,p){
   }
   return `<span class="src">${src}</span><b>${esc(b)}</b>${x}`;
 }
+function annPopup(p){
+  const photos=Array.isArray(p.photos)?p.photos:[]; const m=(p.meta&&typeof p.meta==='object')?p.meta:{};
+  const when=p.added?new Date(p.added).toLocaleString('en-NZ',{day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'}):'';
+  const posTxt={gps:`GPS ±${m.accuracy_m} m`,moved:'pin moved by hand',map:'placed on the map',photo:'from photo location'}[m.position]||'';
+  let h=`<span class="src">Annotation · ${esc(p.cat)}</span><b>${esc(p.title)}</b>${p.note?esc(p.note)+'<br>':''}`;
+  if(photos.length) h+=`<span class="pp">${photos.map(ph=>`<a href="${esc(ph.url)}" target="_blank" rel="noopener"><img src="${esc(ph.url)}" alt="${esc(ph.caption||p.title)}" loading="lazy"></a>`).join('')}</span>`;
+  const bits=[p.by?'By '+esc(p.by):'', when, posTxt, m.via==='phone'?'from a phone':''].filter(Boolean);
+  if(bits.length) h+=`<span class="mm">${bits.join(' · ')}</span>`;
+  return h;
+}
 const CLICK_ORDER=['ann-pt','ann-line','ann-fill','inat_obs','pncc_notable_trees','osm_trees','hz_bore','pncc_heritage','pncc_playgrounds','pncc_cycle','pncc_storm_mains','lidar_contours','hz_flood200','lidar_canopy','osm_roads','osm_paths','pncc_parcels','osm_buildings','osm_green','pncc_zones','pncc_storm_catchment','hz_smap','hz_liquefaction','hz_water_area','lcdb'];
 map.on('click',e=>{
   if(drawMode) return;
@@ -529,7 +547,7 @@ map.on('click',e=>{
   if(!fs.length) return;
   fs.sort((a,b)=>ids.indexOf(a.layer.id)-ids.indexOf(b.layer.id));
   const f=fs[0]; let html;
-  if(f.layer.id.startsWith('ann-')){const p=f.properties;html=`<span class="src">Your annotation · ${esc(p.cat)}</span><b>${esc(p.title)}</b>${esc(p.note)}`}
+  if(f.layer.id.startsWith('ann-')){const full=(ANN.features.find(a=>a.properties.id===f.properties.id)||{properties:f.properties}).properties; html=annPopup(full)}
   else html=popupHTML(f.layer.id,f.properties);
   new maplibregl.Popup({maxWidth:'280px'}).setLngLat(e.lngLat).setHTML(html).addTo(map);
 });
@@ -597,7 +615,7 @@ function renderAnnList(){
   ANN.features.forEach((f,i)=>{
     const p=f.properties, kind={Point:'Point',LineString:'Line',Polygon:'Area'}[f.geometry.type];
     const li=document.createElement('li');
-    li.innerHTML=`<span class="dot" style="--c:${CATS[p.cat]||'#b8334a'}"></span><span><span class="t">${esc(p.title)}</span><br><span class="m">${esc(kind)} · ${esc(p.cat)}${p.by?' · '+esc(p.by):''}${p.note?' · '+esc(p.note):''}</span></span><span class="acts no-print"><button type="button" data-z="${i}">Show</button><button type="button" data-d="${i}" aria-label="Delete ${esc(p.title)}">Delete</button></span>`;
+    li.innerHTML=`<span class="dot" style="--c:${CATS[p.cat]||'#b8334a'}"></span><span><span class="t">${esc(p.title)}</span><br><span class="m">${esc(kind)} · ${esc(p.cat)}${p.by?' · '+esc(p.by):''}${Array.isArray(p.photos)&&p.photos.length?` · ${p.photos.length} photo${p.photos.length>1?'s':''}`:''}${p.note?' · '+esc(p.note):''}</span></span><span class="acts no-print"><button type="button" data-z="${i}">Show</button><button type="button" data-d="${i}" aria-label="Delete ${esc(p.title)}">Delete</button></span>`;
     ul.appendChild(li);
   });
   if(!ANN.features.length) ul.innerHTML='<li><span></span><span class="m">No annotations yet. Use the Point, Line or Area tools under the map.</span><span></span></li>';
@@ -771,7 +789,7 @@ function setShared(fc){ANN=fc;lastLoad=new Date();renderAnnList();refreshAnnSour
 async function loadShared(){
   if(!/^https?:$/.test(location.protocol)) return false;
   try{const r=await fetch(API,{cache:'no-store'}); if(!r.ok) return false; const j=await r.json(); if(j.type!=='FeatureCollection') return false;
-    SHARED=true; document.getElementById('sharedbar').hidden=false; document.getElementById('a-by-wrap').hidden=false; setShared(j); return true}
+    SHARED=true; document.getElementById('sharedbar').hidden=false; document.getElementById('a-by-wrap').hidden=false; setShared(j); showPhoneBox(); return true}
   catch(e){return false}
 }
 async function postShared(body){
@@ -796,6 +814,11 @@ async function deleteFeature(i){
   catch(e){renderAnnList();store.textContent='Not deleted: '+e.message}
 }
 document.getElementById('a-refresh').addEventListener('click',loadShared);
+function showPhoneBox(){
+  const url=location.origin+'/add/'; document.getElementById('phonelink').href=url; document.getElementById('phonebox').hidden=false;
+  const q=document.getElementById('qr'); if(q.childNodes.length||!window.QRCode) return;
+  try{ new QRCode(q,{text:url,width:76,height:76,correctLevel:QRCode.CorrectLevel.M}) }catch(e){ q.hidden=true }
+}
 renderAnnList();
 applyTime();
 loadShared();

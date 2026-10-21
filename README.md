@@ -36,8 +36,14 @@ No API keys are stored in this repository. On the hosted site, the "LINZ full-de
 
 On the hosted site, annotations are shared through a Google Sheet:
 
-- `functions/api/annotations.js` (Cloudflare Pages Function) lets anyone read them and lets people with the editing code add or delete them. It checks every shape is inside the mapped area.
+- `functions/api/annotations.js` (Cloudflare Pages Function) lets anyone read them and lets people with the editing code add or delete them. It checks every shape is inside the mapped area, and accepts photos and phone details (GPS accuracy, time captured, device).
 - `google-sheet/apps-script.gs` runs on the Sheet and only answers requests that carry the private token. Deleted annotations are marked in a `deleted` column rather than removed.
 - Cloudflare secrets: `SHEET_URL` (the Apps Script web app address), `SHEET_TOKEN` (the same token as in the Apps Script) and `EDIT_CODE`.
 
-When the Sheet isn't set up, or the page is opened as a file, annotations are saved in the viewer's browser instead. "Show as GeoJSON" and "Load pasted GeoJSON" copy them out and back in.
+When the Sheet isn't set up, or the page is opened as a file, annotations are saved in the viewer's browser instead.
+
+## Phone form and photos
+
+- `add/` is the phone form (`/add/`): GPS position with accuracy, drag-to-adjust pin, category buttons, up to 3 photos, and a queue that holds records on the phone until there is signal. It can be added to the home screen.
+- Photos are shrunk to 1,600 px on the phone. Their time taken and GPS position are read first; everything else embedded in the file is dropped.
+- `functions/api/photos.js` stores each photo in the Cloudflare R2 bucket bound as `PHOTOS`, and copies it to the "NZ Map Lab photos" Google Drive folder through the Apps Script (listed on the Sheet's Photos tab). `functions/photos/[name].js` serves photos to the map.

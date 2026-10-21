@@ -41,6 +41,22 @@ function cleanFeature(f) {
     : { type: 'Polygon', coordinates: [pts.map(round)] };
   const p = f.properties || {};
   const str = (v, n) => String(v ?? '').trim().slice(0, n);
+  const num = (v, lo, hi) => (typeof v === 'number' && isFinite(v) && v >= lo && v <= hi ? Math.round(v * 1e6) / 1e6 : null);
+  // Photos must be ones uploaded through /api/photos.
+  const photos = (Array.isArray(p.photos) ? p.photos : []).slice(0, 3)
+    .filter(ph => ph && /^\/photos\/[0-9a-f-]{36}\.jpg$/.test(ph.url))
+    .map(ph => ({ url: ph.url, caption: str(ph.caption, 120), taken: str(ph.taken, 32), lat: num(ph.lat, -90, 90), lon: num(ph.lon, -180, 180) }));
+  // Details captured automatically by the phone form.
+  const m = p.meta || {};
+  const meta = {
+    accuracy_m: num(m.accuracy_m, 0, 100000),
+    position: ['gps', 'moved', 'photo', 'map'].includes(m.position) ? m.position : null,
+    captured: str(m.captured, 32),
+    altitude_m: num(m.altitude_m, -500, 9000),
+    heading: num(m.heading, 0, 360),
+    device: str(m.device, 60),
+    via: ['phone', 'desktop', 'import'].includes(m.via) ? m.via : null,
+  };
   return {
     type: 'Feature',
     geometry,
@@ -51,6 +67,8 @@ function cleanFeature(f) {
       note: str(p.note, 400),
       by: str(p.by, 60),
       added: new Date().toISOString(),
+      photos,
+      meta,
     },
   };
 }
