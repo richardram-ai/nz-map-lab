@@ -209,7 +209,12 @@ input[type=checkbox],input[type=radio]{accent-color:var(--accent)}
 @media print{body,.mapcol>.basebar,.timeline,.drawbar,.panel,.cols>div,.tablewrap,.gaps li,.phonebox{background:#fff!important}}
 
 @media (max-width:900px){
-  .workspace{grid-template-columns:minmax(0,1fr)}
+  .workspace{display:flex;flex-direction:column;gap:10px;align-items:stretch}
+  /* phones and narrow windows: map tools, then the layer panel, then the embed box */
+  .mapcol{display:contents}
+  .mapcol>*,.workspace>.panel{order:1;flex:none;min-width:0}
+  .workspace>.panel{order:2}
+  .mapcol>.embedbox{order:3}
   .cols{grid-template-columns:minmax(0,1fr)}
   .gaps{grid-template-columns:minmax(0,1fr)}
   header{grid-template-columns:minmax(0,1fr)}
