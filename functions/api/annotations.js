@@ -3,7 +3,6 @@
 // POST /api/annotations          -> add or delete; needs the X-Edit-Code header to match EDIT_CODE
 // Cloudflare secrets: SHEET_URL (Apps Script web app address), SHEET_TOKEN (shared with the Apps Script), EDIT_CODE.
 
-const AREA = { west: 175.598, south: -40.364, east: 175.641, north: -40.335 };
 const CATS = ['Observation', 'Planting', 'Pest or weed', 'Issue'];
 const TYPES = ['Point', 'LineString', 'Polygon'];
 
@@ -25,8 +24,9 @@ async function callSheet(env, payload) {
   return data;
 }
 
-function inArea([x, y]) {
-  return typeof x === 'number' && typeof y === 'number' && x >= AREA.west && x <= AREA.east && y >= AREA.south && y <= AREA.north;
+// The mapped area comes from area.bounds in the settings file.
+function inArea([x, y], a) {
+  return typeof x === 'number' && typeof y === 'number' && x >= a.west && x <= a.east && y >= a.south && y <= a.north;
 }
 
 // The organisation's settings (tasks, pick lists). Loaded from the site's own /config/site.json.
@@ -80,7 +80,7 @@ function cleanFeature(f, cfg) {
   if (!g || !TYPES.includes(g.type)) throw new Error('Only points, lines and areas can be saved.');
   const pts = g.type === 'Point' ? [g.coordinates] : g.type === 'LineString' ? g.coordinates : (g.coordinates || [])[0];
   if (!Array.isArray(pts) || pts.length < 1 || pts.length > 500) throw new Error('That shape has too many or too few points.');
-  if (!pts.every(p => Array.isArray(p) && inArea(p))) throw new Error('Annotations must be inside the mapped area.');
+  if (!pts.every(p => Array.isArray(p) && inArea(p, cfg.area.bounds))) throw new Error('Annotations must be inside the mapped area.');
   const round = p => [Math.round(p[0] * 1e6) / 1e6, Math.round(p[1] * 1e6) / 1e6];
   const geometry = g.type === 'Point' ? { type: 'Point', coordinates: round(g.coordinates) }
     : g.type === 'LineString' ? { type: 'LineString', coordinates: pts.map(round) }
@@ -143,6 +143,7 @@ export async function onRequestPost({ request, env }) {
       const list = Array.isArray(body.features) ? body.features : [];
       if (!list.length || list.length > 50) return json({ error: 'Send between 1 and 50 annotations at a time.' }, 400);
       const cfg = await loadConfig(env, request);
+      if (!cfg || !cfg.area || !cfg.area.bounds) return json({ error: 'The settings file (config/site.json) is missing its area.' }, 503);
       return json(await callSheet(env, { action: 'add', features: list.map(f => cleanFeature(f, cfg)) }));
     }
     if (body.action === 'delete') {

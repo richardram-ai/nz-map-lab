@@ -175,11 +175,15 @@ main>fieldset>legend+*{clear:both}
 <script>
 // ---- Organisation settings: defaults here, replaced by /config/site.json when it loads (cached for offline use).
 let SETTINGS = null;
+// The area comes only from the settings file. The last copy loaded is kept on the phone, so the map
+// starts in the right place even without signal; the very first open needs a connection.
+const CACHED = (()=>{ try{ return JSON.parse(localStorage.getItem('nzml-settings')||'null') }catch(e){ return null } })();
+const CA = CACHED && CACHED.area && CACHED.area.bounds ? CACHED.area : null;
 const CONFIG = {
-  name: 'NZ Map Lab test square',
-  area: { west: 175.598, south: -40.364, east: 175.641, north: -40.335 },
-  square: [[175.613645,-40.354261],[175.625433,-40.345252]],
-  centre: [175.6195385,-40.349756],
+  name: 'NZ Map Lab',
+  area: CA ? CA.bounds : null,
+  square: CA ? CA.square : null,
+  centre: CA ? CA.centre : [175.6, -40.9],
   categories: [
     { id: 'Observation', label: 'Observation', color: '#28699a' },
     { id: 'Planting', label: 'Planting', color: '#2c7a4b' },
@@ -201,16 +205,17 @@ function deviceLabel(){
 
 // ---- Map
 const map = new maplibregl.Map({
-  container:'map', center:CONFIG.centre, zoom:16.3, attributionControl:{compact:true},
-  maxBounds:[[CONFIG.area.west,CONFIG.area.south],[CONFIG.area.east,CONFIG.area.north]],
+  container:'map', center:CONFIG.centre, zoom:CA ? (CA.zoom||16.3) : 5, attributionControl:{compact:true},
+  maxBounds:CONFIG.area ? [[CONFIG.area.west,CONFIG.area.south],[CONFIG.area.east,CONFIG.area.north]] : undefined,
   style:{version:8,sources:{
     aer:{type:'raster',tiles:[location.origin+'/linz/aerial/{z}/{x}/{y}.png?year=2024'],tileSize:256,minzoom:12,maxzoom:21,attribution:'© Toitū Te Whenua LINZ, CC BY 4.0'}},
     layers:[{id:'bg',type:'background',paint:{'background-color':'#e9ece9'}},{id:'aer',type:'raster',source:'aer'}]}
 });
 map.addControl(new maplibregl.NavigationControl({showCompass:false}),'top-right');
-const sq=CONFIG.square;
+function squareData(){ const sq=CONFIG.square; if(!sq) return {type:'FeatureCollection',features:[]};
+  return {type:'Feature',geometry:{type:'LineString',coordinates:[[sq[0][0],sq[0][1]],[sq[1][0],sq[0][1]],[sq[1][0],sq[1][1]],[sq[0][0],sq[1][1]],[sq[0][0],sq[0][1]]]}} }
 map.on('load',()=>{
-  map.addSource('sq',{type:'geojson',data:{type:'Feature',geometry:{type:'LineString',coordinates:[[sq[0][0],sq[0][1]],[sq[1][0],sq[0][1]],[sq[1][0],sq[1][1]],[sq[0][0],sq[1][1]],[sq[0][0],sq[0][1]]]}}});
+  map.addSource('sq',{type:'geojson',data:squareData()});
   map.addLayer({id:'sq',type:'line',source:'sq',paint:{'line-color':'#ffffff','line-width':2,'line-dasharray':[3,2]}});
   map.addSource('acc',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
   map.addLayer({id:'acc',type:'fill',source:'acc',paint:{'fill-color':'#28699a','fill-opacity':.18}});
@@ -225,7 +230,7 @@ let fix=null;           // best recent GPS fix
 let pos=null;           // {lon,lat,source:'gps'|'moved'|'photo'|'map',accuracy}
 let follow=true;        // pin follows GPS until the person moves it
 function circle(lon,lat,r){const pts=[],n=48,dLat=r/111320,dLon=r/(111320*Math.cos(lat*Math.PI/180));for(let i=0;i<=n;i++){const a=i/n*2*Math.PI;pts.push([lon+dLon*Math.cos(a),lat+dLat*Math.sin(a)])}return{type:'Feature',geometry:{type:'Polygon',coordinates:[pts]}}}
-function inArea(lon,lat){const a=CONFIG.area;return lon>=a.west&&lon<=a.east&&lat>=a.south&&lat<=a.north}
+function inArea(lon,lat){const a=CONFIG.area;if(!a)return false;return lon>=a.west&&lon<=a.east&&lat>=a.south&&lat<=a.north}
 function setPos(p,{fly=false}={}){
   pos=p; marker.setLngLat([p.lon,p.lat]); if(!markerShown){marker.addTo(map);markerShown=true}
   if(fly) map.easeTo({center:[p.lon,p.lat],zoom:Math.max(map.getZoom(),17.5),duration:600});
@@ -348,8 +353,10 @@ async function loadSettings(){
   try{ const r=await fetch('/config/site.json',{cache:'no-cache'}); if(r.ok){ SETTINGS=await r.json(); store.set('nzml-settings',JSON.stringify(SETTINGS)) } }catch(e){}
   if(!SETTINGS){ try{ SETTINGS=JSON.parse(store.get('nzml-settings','null')) }catch(e){} }
   if(!SETTINGS){ $('fields').innerHTML='<p class="msg err">The organisation’s settings couldn’t be loaded. Connect to the internet once and reload this page.</p>'; return }
-  const a=SETTINGS.area; if(a&&a.bounds){ CONFIG.area=a.bounds; CONFIG.square=a.square; CONFIG.centre=a.centre;
-    map.setMaxBounds([[a.bounds.west,a.bounds.south],[a.bounds.east,a.bounds.north]]); if(!pos) map.jumpTo({center:a.centre}) }
+  const a=SETTINGS.area; if(a&&a.bounds){ const first=!CONFIG.area; CONFIG.area=a.bounds; CONFIG.square=a.square; CONFIG.centre=a.centre;
+    map.setMaxBounds([[a.bounds.west,a.bounds.south],[a.bounds.east,a.bounds.north]]); if(!pos||first) map.jumpTo({center:a.centre,zoom:a.zoom||16.3});
+    const upd=()=>map.getSource('sq')&&map.getSource('sq').setData(squareData()); map.loaded()?upd():map.once('load',upd);
+    if(!pos) marker.setLngLat(a.centre) }
   if(SETTINGS.categories) { CONFIG.categories=SETTINGS.categories.map(c=>({id:c.id,label:c.label,color:c.colour})); renderCats() }
   if(SETTINGS.organisation&&SETTINGS.organisation.short_name) document.querySelector('header b').textContent=SETTINGS.organisation.short_name;
   setTask(params.get('task')||store.get('nzml-last-task',''));

@@ -2,14 +2,22 @@
 // The key lives in the Cloudflare Pages secret LINZ_KEY, never in the page or this repository.
 // Route: /linz/aerial/{z}/{x}/{y}.png?year=2013 (defaults to 2024)
 
-// Palmerston North urban aerial photo layers on the LINZ Data Service, by year flown.
-const LAYERS = { 2013: 52338, 2015: 88138, 2017: 99251, 2018: 105192, 2022: 111539, 2024: 119050 };
-const DEFAULT_YEAR = 2024;
-// Only serve tiles around the test square, so the endpoint can't be used as a free tile server for all of NZ.
-const AREA = { west: 175.598, south: -40.364, east: 175.641, north: -40.335 };
+// The area and the LINZ layer for each year come from the settings file (area.bounds, area.linz_layers).
+// Tiles are only served inside the area, so the endpoint can't be used as a free tile server for all of NZ.
 const MIN_Z = 12, MAX_Z = 21;
 
-function tileRange(z) {
+let cached = null, cachedAt = 0;
+async function loadArea(env, request) {
+  if (cached && Date.now() - cachedAt < 300000) return cached;
+  try {
+    const r = env.ASSETS ? await env.ASSETS.fetch(new URL('/config/site.json', request.url)) : null;
+    const cfg = r && r.ok ? await r.json() : null;
+    if (cfg && cfg.area && cfg.area.bounds) { cached = cfg.area; cachedAt = Date.now(); }
+  } catch {}
+  return cached;
+}
+
+function tileRange(z, AREA) {
   const n = 2 ** z;
   const x = lon => Math.floor((lon + 180) / 360 * n);
   const y = lat => Math.floor((1 - Math.asinh(Math.tan(lat * Math.PI / 180)) / Math.PI) / 2 * n);
@@ -21,12 +29,16 @@ export async function onRequestGet({ params, env, request }) {
   if (parts.length !== 3) return new Response('Not found', { status: 404 });
   const z = Number(parts[0]), x = Number(parts[1]), y = Number(String(parts[2]).replace(/\.png$/, ''));
   if (![z, x, y].every(Number.isInteger) || z < MIN_Z || z > MAX_Z) return new Response('Bad tile', { status: 400 });
-  const r = tileRange(z);
+  const area = await loadArea(env, request);
+  if (!area) return new Response('The settings file (config/site.json) is missing its area', { status: 503 });
+  const r = tileRange(z, area.bounds);
   if (x < r.x0 || x > r.x1 || y < r.y0 || y > r.y1) return new Response('Outside the mapped area', { status: 403 });
   if (!env.LINZ_KEY) return new Response('LINZ_KEY is not set in Cloudflare', { status: 503 });
 
-  const year = Number(new URL(request.url).searchParams.get('year')) || DEFAULT_YEAR;
-  const LAYER = LAYERS[year];
+  const layers = area.linz_layers || {};
+  const years = Object.keys(layers).map(Number).sort();
+  const year = Number(new URL(request.url).searchParams.get('year')) || years[years.length - 1];
+  const LAYER = layers[year];
   if (!LAYER) return new Response('No aerial photos for that year', { status: 404 });
   const sub = 'abcd'[(x + y) % 4];
   const url = `https://tiles-${sub}.data-cdn.linz.govt.nz/services;key=${env.LINZ_KEY}/tiles/v4/layer=${LAYER}/EPSG:3857/${z}/${x}/${y}.png`;

@@ -7,12 +7,13 @@
     "colour": "#2c7a4b"
   },
   "area": {
-    "_about": "bounds: records must fall inside this box. square: the outline drawn on maps. centre and zoom: where maps open.",
+    "_about": "bounds: records must fall inside this box, and aerial tiles are only served inside it. square: the outline drawn on maps. centre and zoom: where maps open. linz_layers: the LINZ Data Service layer number for each aerial photo year (find them at data.linz.govt.nz).",
     "bounds": { "west": 175.598, "south": -40.364, "east": 175.641, "north": -40.335 },
     "square": [[175.613645, -40.354261], [175.625433, -40.345252]],
     "centre": [175.6195385, -40.349756],
     "zoom": 16.3,
-    "aerial_years": [2013, 2015, 2017, 2018, 2022, 2024]
+    "aerial_years": [2013, 2015, 2017, 2018, 2022, 2024],
+    "linz_layers": { "2013": 52338, "2015": 88138, "2017": 99251, "2018": 105192, "2022": 111539, "2024": 119050 }
   },
   "categories": [
     { "id": "Observation", "label": "Observation", "colour": "#28699a" },
