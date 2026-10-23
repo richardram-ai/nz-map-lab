@@ -152,6 +152,17 @@ td.num{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
 section{display:flex;flex-direction:column;gap:12px}
 footer{font-size:.78rem;color:var(--muted);border-top:1px solid var(--rule);padding-top:10px}
 
+.embedbox{border:1px solid var(--rule);padding:8px 12px;display:flex;flex-direction:column;gap:8px}
+.embedbox summary{cursor:pointer;font-weight:700;color:var(--accent)}
+.embedbox[open]{gap:8px}
+.emb-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 16px;font-size:.84rem}
+.emb-grid label{display:flex;flex-direction:column;gap:2px}
+.emb-grid label.ck{flex-direction:row;gap:6px;align-items:center}
+.emb-grid input[type=text]{font:inherit;font-size:.85rem;padding:5px 7px;border:1px solid var(--rule);background:var(--bg);color:var(--ink)}
+.emb-avail{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:.8rem;color:var(--muted)}
+.emb-avail label{display:flex;gap:4px;align-items:center}
+.embedbox textarea{font-family:var(--font-mono);font-size:.74rem;padding:6px;border:1px solid var(--rule);background:var(--bg);color:var(--ink);width:100%}
+@media (max-width:600px){.emb-grid{grid-template-columns:minmax(0,1fr)}}
 .maplibregl-popup-content{font-family:var(--font-body);font-size:.82rem;color:#1b2722;padding:10px 12px;max-width:260px}
 .maplibregl-popup-content b{display:block;font-size:.9rem;margin-bottom:2px}
 .maplibregl-popup-content .pp{display:flex;gap:4px;margin:6px 0}
@@ -241,6 +252,24 @@ footer{font-size:.78rem;color:var(--muted);border-top:1px solid var(--rule);padd
       <button id="d-cancel" type="button" hidden>Cancel</button>
       <span class="hint" id="d-hint">Pick a tool, then click the map.</span>
     </div>
+    <details class="embedbox no-print" id="embedbox">
+      <summary>Get embed code</summary>
+      <p class="hint">Set the map up the way you want it (position, zoom, layers, photo year, dates), then copy the code into a web page. The embed shows the layers that are on now; tick extra layers to offer them in its legend, switched off.</p>
+      <div class="emb-grid">
+        <label>Title shown on the map <input type="text" id="emb-title" maxlength="80" placeholder="Optional"></label>
+        <label class="ck"><input type="checkbox" id="emb-legend" checked> Show a layer legend</label>
+        <label class="ck"><input type="checkbox" id="emb-lock"> Lock the view (no panning or zooming)</label>
+        <label class="ck"><input type="checkbox" id="emb-open"> <span id="emb-open-lab">Open a record's card: click one on the map first</span></label>
+        <label class="ck"><input type="checkbox" id="emb-hide"> Hide records that need an ID check</label>
+      </div>
+      <div class="emb-avail" id="emb-avail"></div>
+      <label class="hint" for="emb-url">Link</label>
+      <textarea id="emb-url" readonly rows="2"></textarea>
+      <label class="hint" for="emb-code">Embed code</label>
+      <textarea id="emb-code" readonly rows="3"></textarea>
+      <div class="row" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><button type="button" id="emb-copy-url">Copy link</button><button type="button" id="emb-copy-code" class="primary">Copy embed code</button><a id="emb-preview" target="_blank" rel="noopener">Preview ↗</a><span class="hint" id="emb-msg"></span></div>
+      <p class="hint" id="emb-views"></p>
+    </details>
   </div>
 
   <aside class="panel" aria-label="Layers">
@@ -424,11 +453,11 @@ function addOverlays(){
   map.addSource('centre',{type:'geojson',data:{type:'Feature',properties:{},geometry:{type:'Point',coordinates:CENTER}}});
   map.addLayer({id:'centre',type:'circle',source:'centre',paint:{'circle-radius':6,'circle-color':'#ffffff','circle-stroke-color':'#b8334a','circle-stroke-width':3}});
   // annotations
-  map.addSource('ann',{type:'geojson',data:ANN});
+  map.addSource('ann',{type:'geojson',data:annData()});
   const ccol=['match',['get','cat'],...Object.entries(CATS).flat(),'#b8334a'];
   map.addLayer({id:'ann-fill',type:'fill',source:'ann',filter:['==',['geometry-type'],'Polygon'],paint:{'fill-color':ccol,'fill-opacity':.18}});
   map.addLayer({id:'ann-line',type:'line',source:'ann',filter:['!=',['geometry-type'],'Point'],paint:{'line-color':ccol,'line-width':3}});
-  map.addLayer({id:'ann-pt',type:'circle',source:'ann',filter:['==',['geometry-type'],'Point'],paint:{'circle-radius':7,'circle-color':ccol,'circle-stroke-color':'#ffffff','circle-stroke-width':2}});
+  map.addLayer({id:'ann-pt',type:'circle',source:'ann',filter:['==',['geometry-type'],'Point'],paint:{'circle-radius':7,'circle-color':['case',['get','_needs'],'#ffffff',ccol],'circle-stroke-color':['case',['get','_needs'],ccol,'#ffffff'],'circle-stroke-width':['case',['get','_needs'],3,2]}});
   map.addSource('draft',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
   map.addLayer({id:'draft-fill',type:'fill',source:'draft',filter:['==',['geometry-type'],'Polygon'],paint:{'fill-color':'#b8334a','fill-opacity':.12}});
   map.addLayer({id:'draft-line',type:'line',source:'draft',filter:['!=',['geometry-type'],'Point'],paint:{'line-color':'#b8334a','line-width':2,'line-dasharray':[2,1]}});
@@ -535,7 +564,12 @@ function annPopup(p){
   const photos=Array.isArray(p.photos)?p.photos:[]; const m=(p.meta&&typeof p.meta==='object')?p.meta:{};
   const when=p.added?new Date(p.added).toLocaleString('en-NZ',{day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'}):'';
   const posTxt={gps:`GPS ±${m.accuracy_m} m`,moved:'pin moved by hand',map:'placed on the map',photo:'from photo location'}[m.position]||'';
-  let h=`<span class="src">Annotation · ${esc(p.cat)}</span><b>${esc(p.title)}</b>${p.note?esc(p.note)+'<br>':''}`;
+  const task=DSET&&m.task?(DSET.tasks||[]).find(t=>t.id===m.task):null;
+  let h=`<span class="src">${esc(task?task.label:'Annotation')} · ${esc(p.cat)}</span><b>${esc(p.title)}${m.review&&m.review.status==='needs-id'?' <span style="color:#a8661a;font-size:.7rem;border:1.5px solid currentColor;border-radius:3px;padding:0 3px">Needs ID</span>':''}</b>`;
+  if(m.fields&&typeof m.fields==='object'){ const defs=task?task.fields:Object.keys(m.fields).map(k=>({id:k,label:k}));
+    const rows=defs.filter(fd=>m.fields[fd.id]!==undefined&&fd.id!=='title').map(fd=>{let v=m.fields[fd.id]; if(v&&typeof v==='object') v=v.label+(v.sci?` (${v.sci})`:'')+(v.confidence==='think'?', probably':v.confidence==='unsure'&&v.label!=='Not sure'?', not sure':''); if(v===true)v='Yes'; if(v===false)v='No'; return `<span class="mm" style="margin:0;color:#1b2722">${esc(fd.label)}: ${esc(v)}</span>`}).join('');
+    h+=rows; }
+  if(p.note) h+=esc(p.note)+'<br>';
   if(photos.length) h+=`<span class="pp">${photos.map(ph=>`<a href="${esc(ph.url)}" target="_blank" rel="noopener"><img src="${esc(ph.url)}" alt="${esc(ph.caption||p.title)}" loading="lazy"></a>`).join('')}</span>`;
   const bits=[p.by?'By '+esc(p.by):'', when, posTxt, m.via==='phone'?'from a phone':''].filter(Boolean);
   if(bits.length) h+=`<span class="mm">${bits.join(' · ')}</span>`;
@@ -549,7 +583,7 @@ map.on('click',e=>{
   if(!fs.length) return;
   fs.sort((a,b)=>ids.indexOf(a.layer.id)-ids.indexOf(b.layer.id));
   const f=fs[0]; let html;
-  if(f.layer.id.startsWith('ann-')){const full=(ANN.features.find(a=>a.properties.id===f.properties.id)||{properties:f.properties}).properties; html=annPopup(full)}
+  if(f.layer.id.startsWith('ann-')){const full=(ANN.features.find(a=>a.properties.id===f.properties.id)||{properties:f.properties}).properties; html=annPopup(full); lastOpen={id:full.id,title:full.title}; updateEmbed()}
   else html=popupHTML(f.layer.id,f.properties);
   new maplibregl.Popup({maxWidth:'280px'}).setLngLat(e.lngLat).setHTML(html).addTo(map);
 });
@@ -610,7 +644,8 @@ form.addEventListener('submit',e=>{
 });
 document.getElementById('a-discard').addEventListener('click',()=>{pending=null;form.hidden=true;cancelDraw()});
 
-function refreshAnnSource(){map.getSource('ann')?.setData(ANN)}
+function annData(){return {type:'FeatureCollection',features:ANN.features.map(f=>({...f,properties:{...f.properties,_needs:!!(f.properties.meta&&f.properties.meta.review&&f.properties.meta.review.status==='needs-id')}}))}}
+function refreshAnnSource(){map.getSource('ann')?.setData(annData())}
 function centroid(g){const c=g.type==='Point'?[g.coordinates]:(g.type==='LineString'?g.coordinates:g.coordinates[0]);return [c.reduce((a,b)=>a+b[0],0)/c.length,c.reduce((a,b)=>a+b[1],0)/c.length]}
 function renderAnnList(){
   const ul=document.getElementById('annlist'); ul.innerHTML='';
@@ -782,6 +817,47 @@ document.getElementById('t-play').addEventListener('click',()=>{
 });
 window.addEventListener('resize',()=>applyTime());
 
+// ---------- settings file + embed code ----------
+let DSET=null, lastOpen=null;
+const SITE=(/pages\.dev$|^localhost$/.test(location.hostname))?location.origin:'https://nz-map-lab.pages.dev';
+const EMBED_LAYERS=['inat_obs','pncc_notable_trees','osm_trees','lidar_canopy','lidar_contours','hz_flood200','pncc_storm_mains','pncc_zones','pncc_parcels','pncc_heritage','pncc_playgrounds','pncc_cycle','hz_liquefaction'];
+(async()=>{ try{ const r=await fetch('/config/site.json'); if(r.ok){ DSET=await r.json(); renderEmbedViews() } }catch(e){} })();
+function renderEmbedViews(){ const v=DSET&&DSET.embed_views; if(!v) return; const names=Object.keys(v).filter(k=>!k.startsWith('_'));
+  document.getElementById('emb-views').innerHTML='Ready-made views from the settings file: '+names.map(n=>`<a href="${SITE}/embed/?view=${encodeURIComponent(n)}" target="_blank" rel="noopener">${esc(v[n].title||n)}</a>`).join(' · '); }
+function renderAvail(){ const box=document.getElementById('emb-avail'); const prev=new Set([...box.querySelectorAll('input:checked')].map(i=>i.value));
+  const off=EMBED_LAYERS.filter(id=>{const c=document.getElementById('chk-'+id);return c&&!c.checked});
+  box.innerHTML=off.length?'Also offer in the legend: '+off.map(id=>{const L=LAYERS.find(l=>l.id===id);return `<label><input type="checkbox" value="${id}" ${prev.has(id)?'checked':''}>${esc(L?L.label:id)}</label>`}).join(''):''; }
+function updateEmbed(){
+  if(!document.getElementById('embedbox').open) return;
+  const q=new URLSearchParams(); const c=map.getCenter();
+  const title=document.getElementById('emb-title').value.trim(); if(title) q.set('title',title);
+  if(baseMode==='aerial'||baseMode==='linz'){ q.set('base','aerial'); q.set('year',yearA) } else q.set('base','street');
+  q.set('center',c.lng.toFixed(5)+','+c.lat.toFixed(5)); q.set('zoom',map.getZoom().toFixed(1));
+  const on=['records',...EMBED_LAYERS.filter(id=>{const k=document.getElementById('chk-'+id);return k&&k.checked})];
+  q.set('layers',on.join(','));
+  const av=[...document.querySelectorAll('#emb-avail input:checked')].map(i=>i.value); if(av.length) q.set('available',av.join(','));
+  const [a,b]=range(); if(a>0||b<NM){ q.set('from',monthStr(a)); q.set('to',monthStr(b)) }
+  if(!document.getElementById('emb-legend').checked) q.set('legend','0');
+  if(document.getElementById('emb-lock').checked) q.set('lock','1');
+  if(document.getElementById('emb-hide').checked) q.set('unconfirmed','hide');
+  const ol=document.getElementById('emb-open'); ol.disabled=!lastOpen; document.getElementById('emb-open-lab').textContent=lastOpen?`Open the card for “${lastOpen.title}”`:'Open a record\'s card: click one on the map first';
+  if(lastOpen&&ol.checked) q.set('open',lastOpen.id);
+  const url=SITE+'/embed/?'+q.toString().replace(/%2C/g,',');
+  document.getElementById('emb-url').value=url;
+  document.getElementById('emb-code').value=`<iframe src="${url}" width="100%" height="480" style="border:0;max-width:100%" loading="lazy" title="${esc(title||'Map')}" allow="fullscreen"></iframe>`;
+  document.getElementById('emb-preview').href=url;
+}
+document.getElementById('embedbox').addEventListener('toggle',()=>{renderAvail();updateEmbed()});
+document.getElementById('embedbox').addEventListener('input',updateEmbed);
+document.getElementById('embedbox').addEventListener('change',updateEmbed);
+map.on('moveend',updateEmbed);
+document.getElementById('layers').addEventListener('change',()=>{renderAvail();updateEmbed()});
+document.getElementById('years').addEventListener('click',()=>setTimeout(updateEmbed,50));
+[tFrom,tTo].forEach(el=>el.addEventListener('input',updateEmbed));
+function copyField(id,btn){ const el=document.getElementById(id); navigator.clipboard.writeText(el.value).then(()=>{document.getElementById('emb-msg').textContent='Copied.'}).catch(()=>{el.select();document.getElementById('emb-msg').textContent='Press Ctrl+C or ⌘C to copy.'}) }
+document.getElementById('emb-copy-url').addEventListener('click',()=>copyField('emb-url'));
+document.getElementById('emb-copy-code').addEventListener('click',()=>copyField('emb-code'));
+
 // ---------- shared annotations (Google Sheet via /api/annotations on the hosted site) ----------
 let SHARED=false, lastLoad=new Date();
 const API='/api/annotations', amsg=document.getElementById('a-msg'), codeEl=document.getElementById('a-code');
@@ -843,5 +919,4 @@ LAYERS.forEach(L=>{
 });
 document.getElementById('attrib').innerHTML=`Data: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a> (ODbL); <a href="https://www.pncc.govt.nz" target="_blank" rel="noopener">Palmerston North City Council</a> (CC BY 4.0); <a href="https://www.horizons.govt.nz" target="_blank" rel="noopener">Horizons Regional Council</a>; <a href="https://www.landcareresearch.co.nz" target="_blank" rel="noopener">Manaaki Whenua – Landcare Research</a>, served by <a href="https://www.eagle.co.nz" target="_blank" rel="noopener">Eagle Technology</a>; sightings from <a href="https://inaturalist.nz" target="_blank" rel="noopener">iNaturalist NZ</a> observers under each record's licence; <a href="https://www.doc.govt.nz" target="_blank" rel="noopener">Department of Conservation</a>. Downloaded ${new Date('2026-10-17').toLocaleDateString('en-NZ')}. Aerial photos and LiDAR © <a href="https://www.linz.govt.nz" target="_blank" rel="noopener">Toitū Te Whenua LINZ</a> (CC BY 4.0); LiDAR via the LINZ open elevation store on AWS. Map built with MapLibre GL JS.`;
 </script>
-
 </html>

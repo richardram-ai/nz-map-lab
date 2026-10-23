@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en-NZ">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Map · NZ Map Lab</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.css">
+<style>
+/* Embed: the map fills the frame; a title chip top-left, a compact legend bottom-left, a link to the full map bottom-right. */
+:root{--ink:#1b2722;--muted:#5a6862;--rule:#d3dcd7;--card:#ffffff;--accent:#2c7a4b;--water:#28699a;--warn:#a8661a;
+  --font:"Aptos","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%;background:#eef1ee;font-family:var(--font);color:var(--ink)}
+#map{position:absolute;inset:0}
+.card{background:var(--card);border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+#title{position:absolute;top:10px;left:10px;z-index:3;padding:6px 10px;font-weight:700;font-size:.95rem;max-width:calc(100% - 70px)}
+#legend{position:absolute;left:10px;bottom:28px;z-index:3;padding:8px 10px;font-size:.8rem;max-width:min(260px,calc(100% - 20px));max-height:calc(100% - 90px);overflow:auto}
+#legend summary{cursor:pointer;font-weight:700;font-size:.82rem;list-style:none}
+#legend summary::-webkit-details-marker{display:none}
+#legend summary::after{content:" ▾";color:var(--muted)}
+#legend:not([open]) summary::after{content:" ▸"}
+#legend label{display:grid;grid-template-columns:16px 14px 1fr;gap:6px;align-items:center;margin-top:5px;cursor:pointer}
+#legend .sw{width:12px;height:12px;border-radius:50%;background:var(--c);border:1px solid rgba(0,0,0,.2)}
+#legend .sw.ln{height:3px;border-radius:0;border:0}
+#legend .sw.ar{border-radius:2px;opacity:.75}
+#legend .sub{grid-column:3;color:var(--muted);font-size:.72rem;margin-top:-3px}
+#full{position:absolute;right:10px;bottom:28px;z-index:3;padding:5px 9px;font-size:.78rem;color:var(--water);text-decoration:none}
+#msg{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:4;padding:12px 14px;font-size:.9rem;max-width:80%}
+.maplibregl-popup-content{font-family:var(--font);font-size:.82rem;padding:10px 12px;max-width:260px;color:var(--ink)}
+.maplibregl-popup-content b{display:block;font-size:.92rem;margin-bottom:2px}
+.maplibregl-popup-content .src{display:block;color:var(--muted);font-size:.7rem;text-transform:uppercase;letter-spacing:.06em}
+.maplibregl-popup-content .pp{display:flex;gap:4px;margin:6px 0}
+.maplibregl-popup-content .pp img{width:76px;height:76px;object-fit:cover;border-radius:4px}
+.maplibregl-popup-content .mm{display:block;color:var(--muted);font-size:.72rem;margin-top:4px}
+.maplibregl-popup-content dl{display:grid;grid-template-columns:auto 1fr;gap:1px 8px;margin:4px 0}
+.maplibregl-popup-content dt{color:var(--muted)} .maplibregl-popup-content dd{margin:0}
+.badge{display:inline-block;font-size:.68rem;font-weight:700;color:var(--warn);border:1.5px solid currentColor;border-radius:3px;padding:0 4px;margin-left:4px;vertical-align:1px}
+.maplibregl-ctrl-attrib{font-size:10px}
+</style>
+</head>
+<body>
+<div id="map" role="region" aria-label="Map"></div>
+<div id="title" class="card" hidden></div>
+<details id="legend" class="card" open hidden><summary>Layers</summary><div id="legend-list"></div></details>
+<a id="full" class="card" href="/" target="_blank" rel="noopener">Open full map ↗</a>
+<div id="msg" class="card" hidden></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.js"></script>
+<script>
+// ---- Layers available to embeds. id = the data file name in /data (or "records" for the organisation's own records).
+const LAYERS = {
+  records:            { label:'Our records', kind:'records' },
+  inat_obs:           { label:'Species sightings (iNaturalist)', kind:'circle', color:'#28699a', r:4.5, by:'group',
+                        match:{Aves:'#28699a',Plantae:'#2c7a4b',Insecta:'#c47d14',Fungi:'#8a5a3c',Arachnida:'#6a4c9c',Reptilia:'#b8334a'} },
+  pncc_notable_trees: { label:'Notable trees', kind:'circle', color:'#1d5e31', r:7 },
+  osm_trees:          { label:'Mapped trees', kind:'circle', color:'#3f8f56', r:3 },
+  lidar_canopy:       { label:'Tree canopy (LiDAR)', kind:'fill', color:'#4fa15e', opacity:.6, by:'band', match:{1:'#a6d78f',2:'#4fa15e',3:'#1d5e31'} },
+  lidar_contours:     { label:'Contours, 0.5 m', kind:'line', color:'#7a5a2c', width:1 },
+  hz_flood200:        { label:'200-year flood model', kind:'fill', color:'#3b82c4', opacity:.45 },
+  pncc_storm_mains:   { label:'Stormwater pipes', kind:'line', color:'#28699a', width:1.5 },
+  pncc_zones:         { label:'District Plan zones', kind:'outline', color:'#6a4c9c' },
+  pncc_parcels:       { label:'Property parcels', kind:'outline', color:'#8f7fb5', width:.5 },
+  pncc_heritage:      { label:'Heritage sites', kind:'circle', color:'#6a4c9c', r:5 },
+  pncc_playgrounds:   { label:'Playgrounds', kind:'circle', color:'#c47d14', r:5 },
+  pncc_cycle:         { label:'Cycle network', kind:'line', color:'#1f8a8a', width:2.5 },
+  hz_liquefaction:    { label:'Liquefaction', kind:'fill', color:'#a8661a', opacity:.15 },
+};
+const STREET = ['osm_green','osm_buildings','osm_roads','osm_paths'];
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const list = v => (Array.isArray(v) ? v : String(v || '').split(',')).map(x => String(x).trim()).filter(Boolean);
+function showMsg(t){ $('msg').textContent = t; $('msg').hidden = false; }
+
+(async function main(){
+  let cfg = {};
+  try { cfg = await (await fetch('/config/site.json')).json(); } catch (e) { showMsg('The map settings could not be loaded.'); return; }
+  const q = new URLSearchParams(location.search);
+  const view = (cfg.embed_views || {})[q.get('view')] || {};
+  // Settings: defaults, then the named view, then anything in the address.
+  const S = { base:'aerial', year:2024, zoom:cfg.area.zoom, center:cfg.area.centre, layers:['records'], available:[], legend:true, lock:false,
+              tasks:[], cats:[], from:'', to:'', unconfirmed:'show', open:'', title:'', square:true, ...view };
+  for (const k of ['base','title','open','from','to','unconfirmed']) if (q.has(k)) S[k] = q.get(k);
+  for (const k of ['year','zoom']) if (q.has(k)) S[k] = Number(q.get(k));
+  for (const k of ['layers','available','tasks','cats']) if (q.has(k)) S[k] = list(q.get(k));
+  for (const k of ['legend','lock','square']) if (q.has(k)) S[k] = ['1','true','yes'].includes(q.get(k));
+  if (q.has('center')) { const c = list(q.get('center')).map(Number); if (c.length === 2 && c.every(Number.isFinite)) S.center = c; }
+  S.layers = list(S.layers).filter(id => LAYERS[id]); S.available = list(S.available).filter(id => LAYERS[id] && !S.layers.includes(id));
+  if (S.title) { $('title').textContent = S.title; $('title').hidden = false; }
+  $('full').href = '/' + (location.search ? '' : '');
+  const b = cfg.area.bounds, cats = Object.fromEntries((cfg.categories || []).map(c => [c.id, c.colour]));
+  const tasks = Object.fromEntries((cfg.tasks || []).map(t => [t.id, t]));
+
+  const style = { version:8, sources:{}, layers:[{ id:'bg', type:'background', paint:{ 'background-color':'#eef1ee' } }] };
+  if (S.base === 'aerial') {
+    style.sources.aer = { type:'raster', tiles:[location.origin + '/linz/aerial/{z}/{x}/{y}.png?year=' + (S.year || 2024)], tileSize:256, minzoom:12, maxzoom:21,
+                          attribution:'Aerial ' + (S.year || 2024) + ' © Toitū Te Whenua LINZ, CC BY 4.0' };
+    style.layers.push({ id:'aer', type:'raster', source:'aer' });
+  }
+  const map = new maplibregl.Map({ container:'map', style, center:S.center, zoom:S.zoom, attributionControl:{ compact:true },
+    maxBounds:[[b.west - .01, b.south - .01], [b.east + .01, b.north + .01]], interactive:!S.lock, cooperativeGestures:!S.lock });
+  if (!S.lock) map.addControl(new maplibregl.NavigationControl({ showCompass:false }), 'top-right');
+  await new Promise(r => map.on('load', r));
+
+  const getJSON = async u => { const r = await fetch(u); if (!r.ok) throw new Error(u); return r.json(); };
+  // Street base drawn from OpenStreetMap data
+  if (S.base === 'street' || S.base === 'plain') {
+    const parts = S.base === 'street' ? STREET : ['osm_roads'];
+    for (const id of parts) {
+      try {
+        map.addSource(id, { type:'geojson', data: await getJSON('/data/' + id + '.geojson'), attribution:'© OpenStreetMap contributors' });
+        if (id === 'osm_green') map.addLayer({ id, type:'fill', source:id, paint:{ 'fill-color':'#cfe6c8' } });
+        if (id === 'osm_buildings') map.addLayer({ id, type:'fill', source:id, paint:{ 'fill-color':'#d6dbd8' } });
+        if (id === 'osm_roads') map.addLayer({ id, type:'line', source:id, paint:{ 'line-color':'#ffffff', 'line-width':3 } });
+        if (id === 'osm_paths') map.addLayer({ id, type:'line', source:id, paint:{ 'line-color':'#c4cbc7', 'line-width':1, 'line-dasharray':[2,2] } });
+      } catch (e) {}
+    }
+  }
+  if (S.square && cfg.area.square) {
+    const sq = cfg.area.square;
+    map.addSource('sq', { type:'geojson', data:{ type:'Feature', geometry:{ type:'LineString', coordinates:[[sq[0][0],sq[0][1]],[sq[1][0],sq[0][1]],[sq[1][0],sq[1][1]],[sq[0][0],sq[1][1]],[sq[0][0],sq[0][1]]] } } });
+    map.addLayer({ id:'sq', type:'line', source:'sq', paint:{ 'line-color': S.base === 'aerial' ? '#ffffff' : '#b8334a', 'line-width':1.5, 'line-dasharray':[3,2] } });
+  }
+
+  // ---- Records: filter by task, category, dates and review status
+  let records = { type:'FeatureCollection', features:[] };
+  async function loadRecords(){
+    try { records = await getJSON('/api/annotations'); } catch (e) { return; }
+    const lo = S.from ? S.from + (S.from.length === 7 ? '-01' : '') : '', hi = S.to ? S.to + (S.to.length === 7 ? '-31' : '') : '';
+    records.features = records.features.filter(f => {
+      const p = f.properties, m = p.meta || {}, d = String(p.added || '').slice(0, 10);
+      if (S.tasks.length && !S.tasks.includes(m.task)) return false;
+      if (S.cats.length && !S.cats.includes(p.cat)) return false;
+      if (lo && d < lo) return false; if (hi && d > hi) return false;
+      const needs = m.review && m.review.status === 'needs-id';
+      if (needs && S.unconfirmed === 'hide') return false;
+      p._needs = !!needs; p._colour = cats[p.cat] || '#b8334a';
+      return true;
+    });
+  }
+  function popupFor(layerId, p){
+    if (layerId.startsWith('records')) {
+      const r = records.features.find(f => f.properties.id === p.id); if (r) p = r.properties;
+      const m = p.meta || {}, t = tasks[m.task], photos = Array.isArray(p.photos) ? p.photos : [];
+      let h = `<span class="src">${esc(t ? t.label : p.cat)}</span><b>${esc(p.title)}${m.review && m.review.status === 'needs-id' ? '<span class="badge">Needs ID</span>' : ''}</b>`;
+      if (t && m.fields) {
+        const rows = t.fields.filter(fd => m.fields[fd.id] !== undefined && fd.id !== 'title').map(fd => {
+          let v = m.fields[fd.id]; if (v && typeof v === 'object') v = v.label + (v.sci ? ` (${v.sci})` : '') + (v.confidence === 'think' ? ', probably' : ''); if (v === true) v = 'Yes'; if (v === false) v = 'No';
+          return `<dt>${esc(fd.label)}</dt><dd>${esc(v)}</dd>`; }).join('');
+        if (rows) h += `<dl>${rows}</dl>`;
+      }
+      if (p.note) h += esc(p.note) + '<br>';
+      if (photos.length) h += `<span class="pp">${photos.map(ph => `<a href="${esc(ph.url)}" target="_blank" rel="noopener"><img src="${esc(ph.url)}" alt="${esc(ph.caption || p.title)}"></a>`).join('')}</span>`;
+      const when = p.added ? new Date(p.added).toLocaleDateString('en-NZ', { day:'numeric', month:'short', year:'numeric' }) : '';
+      h += `<span class="mm">${[p.by ? 'By ' + esc(p.by) : '', when].filter(Boolean).join(' · ')}</span>`;
+      return h;
+    }
+    const L = LAYERS[layerId] || {}; let name = p.name || p.COMMON_NAME || p.BLDG_OBJECT || p.ZONE || p.PLAYGROUND_NAME || p.ROAD_NAME || p.label || '';
+    if (layerId === 'inat_obs') return `<span class="src">${esc(L.label)}</span><b>${esc(p.name)}</b><i>${esc(p.sci)}</i><br>${esc(p.date)}<br><a href="${esc(p.url)}" target="_blank" rel="noopener">Open on iNaturalist</a>`;
+    if (layerId === 'lidar_contours') name = 'Ground height ' + p.elev + ' m';
+    if (layerId === 'lidar_canopy') name = 'Tree canopy, ' + p.label + ' tall';
+    return `<span class="src">${esc(L.label)}</span><b>${esc(name || L.label)}</b>`;
+  }
+
+  // ---- Add data layers (on and available)
+  const added = {};
+  async function addLayer(id, visible){
+    const L = LAYERS[id]; const vis = visible ? 'visible' : 'none';
+    if (id === 'records') {
+      await loadRecords();
+      map.addSource('records', { type:'geojson', data:records });
+      map.addLayer({ id:'records-fill', type:'fill', source:'records', filter:['==',['geometry-type'],'Polygon'], layout:{ visibility:vis }, paint:{ 'fill-color':['get','_colour'], 'fill-opacity':.2 } });
+      map.addLayer({ id:'records-line', type:'line', source:'records', filter:['!=',['geometry-type'],'Point'], layout:{ visibility:vis }, paint:{ 'line-color':['get','_colour'], 'line-width':3 } });
+      map.addLayer({ id:'records-pt', type:'circle', source:'records', filter:['==',['geometry-type'],'Point'], layout:{ visibility:vis },
+        paint:{ 'circle-radius':7, 'circle-color':['case',['get','_needs'],'#ffffff',['get','_colour']], 'circle-stroke-color':['case',['get','_needs'],['get','_colour'],'#ffffff'], 'circle-stroke-width':['case',['get','_needs'],3,2] } });
+      added[id] = ['records-fill','records-line','records-pt']; return;
+    }
+    let data; try { data = await getJSON('/data/' + id + '.geojson'); } catch (e) { return; }
+    map.addSource(id, { type:'geojson', data });
+    const col = L.by ? ['match', ['to-string', ['get', L.by]], ...Object.entries(L.match).flat(), L.color] : L.color;
+    if (L.kind === 'circle') map.addLayer({ id, type:'circle', source:id, layout:{ visibility:vis }, paint:{ 'circle-radius':L.r || 4.5, 'circle-color':col, 'circle-stroke-color':'#ffffff', 'circle-stroke-width':1.2 } });
+    if (L.kind === 'line') map.addLayer({ id, type:'line', source:id, layout:{ visibility:vis }, paint:{ 'line-color':col, 'line-width':L.width || 2 } });
+    if (L.kind === 'fill') map.addLayer({ id, type:'fill', source:id, layout:{ visibility:vis }, paint:{ 'fill-color':col, 'fill-opacity':L.opacity ?? .5 } });
+    if (L.kind === 'outline') map.addLayer({ id, type:'line', source:id, layout:{ visibility:vis }, paint:{ 'line-color':col, 'line-width':L.width || 1.2 } });
+    added[id] = [id];
+  }
+  // draw order: areas first, then lines, then points, then records on top
+  const order = id => ({ fill:0, outline:1, line:2, circle:3, records:4 })[LAYERS[id].kind];
+  const all = [...S.layers, ...S.available].sort((a, c) => order(a) - order(c));
+  for (const id of all) await addLayer(id, S.layers.includes(id));
+
+  // ---- Legend
+  if (S.legend && all.length) {
+    const sw = id => { const L = LAYERS[id]; if (id === 'records') return '<span class="sw" style="--c:#2c7a4b"></span>'; const cls = L.kind === 'line' || L.kind === 'outline' ? 'ln' : L.kind === 'fill' ? 'ar' : ''; return `<span class="sw ${cls}" style="--c:${L.color}"></span>`; };
+    $('legend-list').innerHTML = [...S.layers, ...S.available].map(id => {
+      const sub = id === 'records' && records.features.some(f => f.properties._needs) ? '<span class="sub">Hollow markers need an ID check</span>' : '';
+      return `<label><input type="checkbox" data-l="${id}" ${S.layers.includes(id) ? 'checked' : ''}>${sw(id)}<span>${esc(LAYERS[id].label)}</span>${sub}</label>`; }).join('');
+    $('legend').hidden = false;
+    if (innerWidth < 480) $('legend').open = false;
+    $('legend-list').addEventListener('change', e => { const id = e.target.dataset.l; (added[id] || []).forEach(l => map.setLayoutProperty(l, 'visibility', e.target.checked ? 'visible' : 'none')); });
+  }
+
+  // ---- Pop-ups
+  const clickable = () => Object.values(added).flat().filter(l => map.getLayer(l) && map.getLayoutProperty(l, 'visibility') !== 'none' && !['pncc_parcels','pncc_zones','hz_liquefaction','hz_flood200'].includes(l));
+  map.on('click', e => {
+    const fs = map.queryRenderedFeatures([[e.point.x - 5, e.point.y - 5], [e.point.x + 5, e.point.y + 5]], { layers:clickable() });
+    if (!fs.length) return;
+    const f = fs.find(x => x.layer.id.startsWith('records')) || fs[0];
+    const lid = f.layer.id.startsWith('records') ? 'records' : f.layer.id;
+    new maplibregl.Popup({ maxWidth:'280px' }).setLngLat(e.lngLat).setHTML(popupFor(lid, f.properties)).addTo(map);
+  });
+  map.on('mousemove', e => { map.getCanvas().style.cursor = map.queryRenderedFeatures(e.point, { layers:clickable() }).length ? 'pointer' : ''; });
+
+  // ---- Open a record's card at load (revealed), leaving the rest closed (active)
+  if (S.open) {
+    const slug = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const want = list(S.open);
+    want.forEach((w, i) => {
+      const f = records.features.find(x => x.properties.id === w || slug(x.properties.title) === slug(w));
+      if (!f) return;
+      const c = f.geometry.type === 'Point' ? f.geometry.coordinates : (f.geometry.type === 'LineString' ? f.geometry.coordinates[0] : f.geometry.coordinates[0][0]);
+      new maplibregl.Popup({ maxWidth:'280px', closeOnClick:false }).setLngLat(c).setHTML(popupFor('records', f.properties)).addTo(map);
+      if (i === 0 && !q.has('center') && !view.center) map.jumpTo({ center:c });
+    });
+  }
+})();
+</script>
+</body>
+</html>

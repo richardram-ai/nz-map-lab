@@ -40,7 +40,7 @@ main{display:flex;flex-direction:column;gap:16px;padding:12px max(14px,env(safe-
 .chip i{width:8px;height:8px;border-radius:50%;background:currentColor;display:inline-block}
 .hint{font-size:.82rem;color:var(--muted)}
 fieldset{border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
-legend,label.lab{font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);padding:0;margin-bottom:2px}
+legend,label.lab,.lab{display:block;font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);padding:0;margin-bottom:2px}
 .cats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .cats button{display:flex;align-items:center;gap:8px;justify-content:flex-start;font:inherit;font-size:.95rem;padding:12px 12px;border-radius:8px;border:1.5px solid var(--rule);background:var(--bg);color:var(--ink);text-align:left;min-height:48px}
 .cats button i{width:12px;height:12px;border-radius:50%;background:var(--c);flex:none}
@@ -51,6 +51,25 @@ textarea{min-height:76px;resize:vertical}
 .btn{font:inherit;font-size:.95rem;padding:10px 14px;border-radius:8px;border:1.5px solid var(--rule);background:var(--bg);color:var(--ink);min-height:44px}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
 .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.tasks{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tasks button{font:inherit;text-align:left;padding:8px 10px;border-radius:8px;border:1.5px solid var(--rule);background:var(--bg);color:var(--ink);min-height:48px;display:flex;flex-direction:column;gap:1px}
+.tasks button b{font-size:.98rem} .tasks button span{font-size:.75rem;color:var(--muted)}
+.tasks button[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1.5px var(--accent)}
+.fields{display:flex;flex-direction:column;gap:16px}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.opts button{font:inherit;font-size:.92rem;text-align:left;padding:10px 11px;border-radius:8px;border:1.5px solid var(--rule);background:var(--bg);color:var(--ink);min-height:44px;line-height:1.2}
+.opts button small{display:block;color:var(--muted);font-size:.72rem;font-style:italic}
+.opts button[aria-pressed="true"]{border-color:var(--accent);background:var(--soft);box-shadow:inset 0 0 0 1.5px var(--accent);font-weight:700}
+.opts button.other{border-style:dashed}
+.opts .grouplab{grid-column:1/-1;font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:4px}
+.seg{display:flex;border:1.5px solid var(--rule);border-radius:8px;overflow:hidden}
+.seg button{flex:1;font:inherit;font-size:.9rem;padding:9px 6px;border:0;border-right:1px solid var(--rule);background:var(--bg);color:var(--ink);min-height:42px}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);font-weight:700}
+.stepper{display:flex;align-items:center;gap:8px}
+.stepper button{width:48px;height:48px;font-size:1.4rem;border-radius:8px;border:1.5px solid var(--rule);background:var(--bg);color:var(--ink)}
+.stepper input{width:96px;text-align:center;font:inherit;font-size:1.1rem;padding:10px;border:1.5px solid var(--rule);border-radius:8px;background:var(--bg);color:var(--ink)}
+.needsid{font-size:.82rem;color:var(--warn)}
 .photos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .ph{position:relative;display:flex;flex-direction:column;gap:4px;min-width:0}
 .ph img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:6px;border:1px solid var(--rule);display:block}
@@ -87,15 +106,21 @@ details[open] summary{margin-bottom:10px}
   <div class="msg warn" id="outside" hidden>You're outside the mapped area. Records can only be saved inside the dashed square.</div>
 
   <fieldset>
-    <legend>What is it?</legend>
+    <legend>What are you recording?</legend>
+    <div class="tasks" id="tasks"></div>
+  </fieldset>
+
+  <div class="fields" id="fields"></div>
+
+  <fieldset id="catbox" hidden>
+    <legend>Type</legend>
     <div class="cats" id="cats"></div>
   </fieldset>
 
   <fieldset>
-    <label class="lab" for="title">Title</label>
-    <input type="text" id="title" maxlength="80" placeholder="e.g. Tūī in the kōwhai" autocomplete="off" enterkeyhint="next">
     <label class="lab" for="note">Note <span style="text-transform:none;letter-spacing:0;font-weight:400">(optional)</span></label>
     <textarea id="note" maxlength="400" placeholder="Anything worth knowing"></textarea>
+    <p class="hint" id="titleprev" aria-live="polite"></p>
   </fieldset>
 
   <fieldset>
@@ -133,7 +158,8 @@ details[open] summary{margin-bottom:10px}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/full.umd.js"></script>
 <script>
-// ---- Organisation settings. Later this comes from the organisation's settings file.
+// ---- Organisation settings: defaults here, replaced by /config/site.json when it loads (cached for offline use).
+let SETTINGS = null;
 const CONFIG = {
   name: 'NZ Map Lab test square',
   area: { west: 175.598, south: -40.364, east: 175.641, north: -40.335 },
@@ -216,6 +242,103 @@ let cat=store.get('nzml-last-cat',CONFIG.categories[0].id);
 function renderCats(){ $('cats').innerHTML=CONFIG.categories.map(c=>`<button type="button" data-c="${c.id}" style="--c:${c.color}" aria-pressed="${c.id===cat}"><i></i>${c.label}</button>`).join('') }
 $('cats').addEventListener('click',e=>{const b=e.target.closest('button'); if(!b) return; cat=b.dataset.c; store.set('nzml-last-cat',cat); renderCats()});
 renderCats();
+
+// ---- Tasks and pick lists (from the settings file)
+const params=new URLSearchParams(location.search);
+let task=null, values={};
+const recentKey=l=>'nzml-recent-'+l;
+const recent=l=>{try{return JSON.parse(store.get(recentKey(l),'[]'))}catch(e){return[]}};
+function pushRecent(l,id){ if(!id||id==='other') return; const r=recent(l).filter(x=>x!==id); r.unshift(id); store.set(recentKey(l),JSON.stringify(r.slice(0,6))) }
+function listItems(name){ return (SETTINGS&&SETTINGS.lists&&SETTINGS.lists[name])||[] }
+function itemLabel(it){ return it.common||it.id }
+function renderTasks(){
+  const ts=(SETTINGS&&SETTINGS.tasks)||[];
+  $('tasks').innerHTML=ts.map(t=>`<button type="button" data-t="${t.id}" aria-pressed="${task&&t.id===task.id}"><b>${esc(t.label)}</b><span>${esc(t.hint||'')}</span></button>`).join('');
+}
+function setTask(id){
+  const ts=(SETTINGS&&SETTINGS.tasks)||[]; task=ts.find(t=>t.id===id)||ts[0]||null; if(!task) return;
+  store.set('nzml-last-task',task.id); values={};
+  task.fields.forEach(fd=>{ if(fd.default!==undefined) values[fd.id]=fd.default });
+  $('catbox').hidden=!!task.category;
+  renderTasks(); renderFields();
+}
+$('tasks').addEventListener('click',e=>{const b=e.target.closest('button'); if(b) setTask(b.dataset.t)});
+
+function renderFields(){
+  if(!task){ $('fields').innerHTML=''; return }
+  const conf=(SETTINGS.identification&&SETTINGS.identification.confidence)||[];
+  $('fields').innerHTML=task.fields.map(fd=>{
+    const v=values[fd.id]; const lab=`<span class="lab">${esc(fd.label)}${fd.required?'':' <span style="text-transform:none;letter-spacing:0;font-weight:400">(optional)</span>'}</span>`;
+    if(fd.type==='list'){
+      const items=listItems(fd.list), sel=v&&v.id, q=(v&&v.q)||'';
+      const showSearch=items.length>8;
+      let shown=items;
+      if(showSearch){
+        const ql=q.trim().toLowerCase();
+        if(ql){ shown=items.filter(it=>[it.common,it.maori,it.sci,it.id].some(x=>x&&x.toLowerCase().includes(ql))) }
+        else { const r=recent(fd.list); shown=[...r.map(id=>items.find(i=>i.id===id)).filter(Boolean), ...items.filter(i=>!r.includes(i.id))] }
+      }
+      const rec=showSearch&&!q.trim()?recent(fd.list).length:0;
+      const btn=it=>`<button type="button" data-f="${fd.id}" data-v="${it.id}" aria-pressed="${sel===it.id}">${esc(itemLabel(it))}${it.sci?`<small>${esc(it.maori&&it.maori!==it.common?it.maori+' · ':'')}${esc(it.sci)}</small>`:''}</button>`;
+      let opts='';
+      shown.forEach((it,i)=>{ if(rec&&i===0) opts+='<span class="grouplab">Recent</span>'; if(rec&&i===rec) opts+='<span class="grouplab">All</span>'; opts+=btn(it) });
+      if(fd.confidence!==false) opts+=`<button type="button" class="other" data-f="${fd.id}" data-v="other" aria-pressed="${sel==='other'}">Other / not sure</button>`;
+      return `<fieldset>${lab}
+        ${showSearch?`<input type="text" data-search="${fd.id}" value="${esc(q)}" placeholder="Type to search ${items.length} names" autocomplete="off">`:''}
+        <div class="opts">${opts}</div>
+        ${sel==='other'?`<input type="text" data-other="${fd.id}" maxlength="80" value="${esc(v.other||'')}" placeholder="What do you think it is? (optional)">`:''}
+        ${fd.confidence!==false&&sel&&sel!=='other'?`<span class="lab" style="margin-top:4px">How sure are you?</span><div class="seg" role="group">${conf.map(c=>`<button type="button" data-conf="${fd.id}" data-v="${c.id}" aria-pressed="${(v.confidence||'sure')===c.id}">${esc(c.label)}</button>`).join('')}</div>`:''}
+        ${needsIdFor(fd)?'<span class="needsid">This will be marked “needs ID” so someone can check it. Add a photo.</span>':''}
+      </fieldset>`;
+    }
+    if(fd.type==='choice') return `<fieldset>${lab}<div class="opts">${fd.options.map(o=>`<button type="button" data-f="${fd.id}" data-v="${esc(o)}" aria-pressed="${v===o}">${esc(o)}</button>`).join('')}</div></fieldset>`;
+    if(fd.type==='yesno') return `<fieldset>${lab}<div class="seg" role="group"><button type="button" data-f="${fd.id}" data-v="yes" aria-pressed="${v===true}">Yes</button><button type="button" data-f="${fd.id}" data-v="no" aria-pressed="${v===false}">No</button></div></fieldset>`;
+    if(fd.type==='number') return `<fieldset>${lab}<div class="stepper"><button type="button" data-step="${fd.id}" data-d="-1" aria-label="Fewer">−</button><input type="number" inputmode="numeric" data-num="${fd.id}" min="${fd.min??''}" max="${fd.max??''}" value="${v??''}" aria-label="${esc(fd.label)}"><button type="button" data-step="${fd.id}" data-d="1" aria-label="More">+</button></div></fieldset>`;
+    return `<fieldset>${lab}<input type="text" data-text="${fd.id}" maxlength="${fd.max||200}" value="${esc(v||'')}" autocomplete="off"></fieldset>`;
+  }).join('');
+  updateTitlePreview();
+}
+function needsIdFor(fd){ const v=values[fd.id]; return fd.type==='list'&&fd.confidence!==false&&v&&(v.id==='other'||v.confidence==='unsure') }
+function recordNeedsId(){ return task&&task.fields.some(needsIdFor) }
+$('fields').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return; const fd=task.fields.find(f=>f.id===(b.dataset.f||b.dataset.conf||b.dataset.step)); if(!fd) return;
+  if(b.dataset.step){ const cur=Number(values[fd.id]??fd.min??0); values[fd.id]=Math.min(fd.max??1e9,Math.max(fd.min??0,cur+Number(b.dataset.d))) }
+  else if(b.dataset.conf){ values[fd.id]={...values[fd.id],confidence:b.dataset.v} }
+  else if(fd.type==='list'){ const prev=values[fd.id]||{}; values[fd.id]={id:b.dataset.v,confidence:b.dataset.v==='other'?'unsure':'sure',other:prev.other||'',q:prev.q||''} }
+  else if(fd.type==='yesno'){ values[fd.id]=b.dataset.v==='yes' }
+  else values[fd.id]=b.dataset.v;
+  renderFields();
+});
+$('fields').addEventListener('input',e=>{
+  const t=e.target;
+  if(t.dataset.search){ const id=t.dataset.search; values[id]={...(values[id]||{}),q:t.value}; const pos=t.selectionStart; renderFields(); const n=document.querySelector(`[data-search="${id}"]`); if(n){n.focus();n.setSelectionRange(pos,pos)} return }
+  if(t.dataset.other){ values[t.dataset.other]={...values[t.dataset.other],other:t.value} }
+  if(t.dataset.num){ values[t.dataset.num]=t.value===''?'':Number(t.value) }
+  if(t.dataset.text){ values[t.dataset.text]=t.value }
+  updateTitlePreview();
+});
+function displayValue(fd,v){
+  if(v===undefined||v===''||v===null) return '';
+  if(fd.type==='list'){ if(v.id==='other') return v.other?v.other+' (unconfirmed)':'Unidentified'; if(fd.title_uses==='id') return v.id; const it=listItems(fd.list).find(i=>i.id===v.id); return it?itemLabel(it):v.id }
+  if(fd.type==='yesno') return v?'Yes':'No';
+  return String(v);
+}
+function buildTitle(){
+  if(!task) return '';
+  return (task.title||'{title}').replace(/\{(\w+)\}/g,(m,id)=>{const fd=task.fields.find(f=>f.id===id); return fd?displayValue(fd,values[id]):''}).replace(/\s+/g,' ').replace(/[:×(]\s*\)?\s*$/,'').trim();
+}
+function updateTitlePreview(){ const t=buildTitle(); $('titleprev').textContent=t?`Will be saved as “${t}”`:'' }
+
+async function loadSettings(){
+  try{ const r=await fetch('/config/site.json',{cache:'no-cache'}); if(r.ok){ SETTINGS=await r.json(); store.set('nzml-settings',JSON.stringify(SETTINGS)) } }catch(e){}
+  if(!SETTINGS){ try{ SETTINGS=JSON.parse(store.get('nzml-settings','null')) }catch(e){} }
+  if(!SETTINGS){ $('fields').innerHTML='<p class="msg err">The organisation’s settings couldn’t be loaded. Connect to the internet once and reload this page.</p>'; return }
+  const a=SETTINGS.area; if(a&&a.bounds){ CONFIG.area=a.bounds; CONFIG.square=a.square; CONFIG.centre=a.centre;
+    map.setMaxBounds([[a.bounds.west,a.bounds.south],[a.bounds.east,a.bounds.north]]); if(!pos) map.jumpTo({center:a.centre}) }
+  if(SETTINGS.categories) { CONFIG.categories=SETTINGS.categories.map(c=>({id:c.id,label:c.label,color:c.colour})); renderCats() }
+  if(SETTINGS.organisation&&SETTINGS.organisation.short_name) document.querySelector('header b').textContent=SETTINGS.organisation.short_name;
+  setTask(params.get('task')||store.get('nzml-last-task',''));
+}
 
 // ---- Name and code
 $('by').value=store.get('map-by'); $('code').value=store.get('map-edit-code');
@@ -315,14 +438,19 @@ setInterval(()=>{ if(navigator.onLine) sendQueue() },60000);
 // ---- Save
 function flash(t,kind=''){const f=$('flash'); f.textContent=t; f.className='msg'+(kind?' '+kind:''); f.hidden=false; clearTimeout(flash.t); flash.t=setTimeout(()=>f.hidden=true,6000)}
 $('save').addEventListener('click',async()=>{
-  const by=$('by').value.trim(), code=$('code').value.trim(), title=$('title').value.trim();
+  const by=$('by').value.trim(), code=$('code').value.trim(), title=buildTitle();
   if(!by||!code){ $('settings').open=true; $(by?'code':'by').focus(); flash('Add your name and the editing code first.','err'); return }
   if(!pos){ flash('Place the record on the map first: wait for your location or tap the map.','err'); return }
   if(!inArea(pos.lon,pos.lat)){ flash('That spot is outside the mapped area.','err'); return }
-  if(!title){ $('title').focus(); flash('Give it a short title.','err'); return }
+  if(!task){ flash('Choose what you’re recording first.','err'); return }
+  const missing=task.fields.find(fd=>fd.required&&(values[fd.id]===undefined||values[fd.id]===''||(fd.type==='list'&&!(values[fd.id]&&values[fd.id].id))));
+  if(missing){ flash(`Choose or fill in “${missing.label}”.`,'err'); return }
+  if(recordNeedsId()&&SETTINGS.identification&&SETTINGS.identification.photo_required_when_unsure&&!photos.length){ flash('Add a photo so someone can check the identification.','err'); return }
+  if(!title){ flash('Give it a short title.','err'); return }
+  const fieldsOut={}; task.fields.forEach(fd=>{ const v=values[fd.id]; if(v===undefined||v==='') return; fieldsOut[fd.id]=fd.type==='list'?{id:v.id,other:v.other||'',confidence:fd.confidence===false?null:(v.confidence||'sure')}:v });
   store.set('map-by',by); store.set('map-edit-code',code);
   const feature={type:'Feature',geometry:{type:'Point',coordinates:[+pos.lon.toFixed(6),+pos.lat.toFixed(6)]},
-    properties:{title,cat,note:$('note').value.trim(),by,
+    properties:{title,cat:task.category||cat,note:$('note').value.trim(),by,task:task.id,fields:fieldsOut,
       meta:{accuracy_m:pos.source==='gps'?Math.round(pos.accuracy*10)/10:null,position:pos.source,captured:new Date().toISOString(),
         altitude_m:pos.source==='gps'&&fix&&fix.altitude!=null?Math.round(fix.altitude):null,
         heading:pos.source==='gps'&&fix&&fix.heading!=null&&!isNaN(fix.heading)?Math.round(fix.heading):null,
@@ -331,14 +459,15 @@ $('save').addEventListener('click',async()=>{
     photos:photos.map(p=>({blob:p.blob,caption:p.caption,taken:p.taken,lat:p.lat,lon:p.lon}))};
   try{ await DB.put(item) }catch(e){ flash('This phone couldn’t store the record. Check you’re not in a private browsing tab.','err'); return }
   // reset the form for the next record
-  $('title').value=''; $('note').value=''; photos.forEach(p=>URL.revokeObjectURL(p.url)); photos=[]; renderPhotos();
+  task.fields.forEach(fd=>{ if(fd.type==='list'&&values[fd.id]) pushRecent(fd.list,values[fd.id].id) });
+  setTask(task.id); $('note').value=''; photos.forEach(p=>URL.revokeObjectURL(p.url)); photos=[]; renderPhotos();
   follow=true; if(fix) setPos({lon:fix.lon,lat:fix.lat,source:'gps',accuracy:fix.accuracy});
   flash(navigator.onLine?'Saved. Sending now…':'Saved on this phone. It will send when you have signal.');
   window.scrollTo({top:0,behavior:'smooth'});
   await renderQueue(); sendQueue();
 });
 
-startGPS(); renderQueue(); sendQueue();
+startGPS(); renderQueue(); sendQueue(); loadSettings();
 if('serviceWorker' in navigator) navigator.serviceWorker.register('/add/sw.js',{scope:'/add/'}).catch(()=>{});
 </script>
 </body>

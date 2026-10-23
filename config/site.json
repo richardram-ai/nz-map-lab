@@ -1,0 +1,183 @@
+{
+  "_about": "Settings for one organisation's map. The desktop map, phone form, embed and Cloudflare functions all read this file. Everything marked 'example' is sample content to replace with the organisation's own.",
+  "organisation": {
+    "name": "NZ Map Lab (test square)",
+    "short_name": "Map Lab",
+    "contact": "Richard Ram",
+    "colour": "#2c7a4b"
+  },
+  "area": {
+    "_about": "bounds: records must fall inside this box. square: the outline drawn on maps. centre and zoom: where maps open.",
+    "bounds": { "west": 175.598, "south": -40.364, "east": 175.641, "north": -40.335 },
+    "square": [[175.613645, -40.354261], [175.625433, -40.345252]],
+    "centre": [175.6195385, -40.349756],
+    "zoom": 16.3,
+    "aerial_years": [2013, 2015, 2017, 2018, 2022, 2024]
+  },
+  "categories": [
+    { "id": "Observation", "label": "Observation", "colour": "#28699a" },
+    { "id": "Planting", "label": "Planting", "colour": "#2c7a4b" },
+    { "id": "Pest or weed", "label": "Pest or weed", "colour": "#b8334a" },
+    { "id": "Issue", "label": "Issue", "colour": "#c47d14" }
+  ],
+  "identification": {
+    "_about": "Shown next to any species choice. 'Not sure' and 'Other' records are marked as needing an ID and need a photo.",
+    "confidence": [
+      { "id": "sure", "label": "Sure" },
+      { "id": "think", "label": "Think so" },
+      { "id": "unsure", "label": "Not sure" }
+    ],
+    "photo_required_when_unsure": true
+  },
+  "tasks": [
+    {
+      "id": "observation",
+      "label": "Observation",
+      "hint": "Something seen: a bird, a plant, an animal",
+      "category": "Observation",
+      "title": "{species}",
+      "fields": [
+        { "id": "species", "label": "What did you see?", "type": "list", "list": "wildlife", "required": true },
+        { "id": "count", "label": "How many?", "type": "number", "min": 1, "max": 500, "default": 1 }
+      ]
+    },
+    {
+      "id": "planting",
+      "label": "Planting",
+      "hint": "Plants going in the ground",
+      "category": "Planting",
+      "title": "{species} × {count}",
+      "fields": [
+        { "id": "species", "label": "Species planted", "type": "list", "list": "plants", "required": true },
+        { "id": "count", "label": "Number planted", "type": "number", "min": 1, "max": 1000, "default": 1, "required": true },
+        { "id": "guard", "label": "Plant guard fitted?", "type": "yesno" }
+      ]
+    },
+    {
+      "id": "trap-check",
+      "label": "Trap check",
+      "hint": "Checking and re-baiting a trap",
+      "category": "Pest or weed",
+      "title": "Trap {trap}: {catch}",
+      "fields": [
+        { "id": "trap", "label": "Trap", "type": "list", "list": "traps", "required": true, "confidence": false, "title_uses": "id" },
+        { "id": "catch", "label": "Catch", "type": "choice", "required": true,
+          "options": ["Nothing", "Rat", "Mouse", "Stoat", "Weasel", "Ferret", "Hedgehog", "Possum", "Cat", "Bird (non-target)", "Sprung, empty", "Trap damaged"] },
+        { "id": "rebaited", "label": "Re-baited?", "type": "yesno", "default": true }
+      ]
+    },
+    {
+      "id": "weed-survey",
+      "label": "Weed survey",
+      "hint": "A weed patch to deal with",
+      "category": "Pest or weed",
+      "title": "{species} ({size})",
+      "fields": [
+        { "id": "species", "label": "Weed", "type": "list", "list": "weeds", "required": true },
+        { "id": "size", "label": "Patch size", "type": "choice", "required": true,
+          "options": ["Single plant", "Small (under 1 m²)", "Medium (1–10 m²)", "Large (over 10 m²)"] },
+        { "id": "treated", "label": "Treated today?", "type": "yesno" }
+      ]
+    },
+    {
+      "id": "general",
+      "label": "Other",
+      "hint": "Anything else: an issue, a note, an idea",
+      "category": null,
+      "title": "{title}",
+      "fields": [
+        { "id": "title", "label": "Title", "type": "text", "max": 80, "required": true }
+      ]
+    }
+  ],
+  "lists": {
+    "_about": "Pick lists. Each item: id (short, never changes), common name, Māori name, scientific name. Example lists for the Manawatū.",
+    "plants": [
+      { "id": "kowhai", "common": "Kōwhai", "maori": "Kōwhai", "sci": "Sophora microphylla" },
+      { "id": "harakeke", "common": "Flax", "maori": "Harakeke", "sci": "Phormium tenax" },
+      { "id": "wharariki", "common": "Mountain flax", "maori": "Wharariki", "sci": "Phormium cookianum" },
+      { "id": "karamu", "common": "Karamū", "maori": "Karamū", "sci": "Coprosma robusta" },
+      { "id": "manuka", "common": "Mānuka", "maori": "Mānuka", "sci": "Leptospermum scoparium" },
+      { "id": "kanuka", "common": "Kānuka", "maori": "Kānuka", "sci": "Kunzea robusta" },
+      { "id": "ti-kouka", "common": "Cabbage tree", "maori": "Tī kōuka", "sci": "Cordyline australis" },
+      { "id": "kahikatea", "common": "White pine", "maori": "Kahikatea", "sci": "Dacrycarpus dacrydioides" },
+      { "id": "totara", "common": "Tōtara", "maori": "Tōtara", "sci": "Podocarpus totara" },
+      { "id": "titoki", "common": "Tītoki", "maori": "Tītoki", "sci": "Alectryon excelsus" },
+      { "id": "karaka", "common": "Karaka", "maori": "Karaka", "sci": "Corynocarpus laevigatus" },
+      { "id": "mahoe", "common": "Whiteywood", "maori": "Māhoe", "sci": "Melicytus ramiflorus" },
+      { "id": "kohuhu", "common": "Black matipo", "maori": "Kōhūhū", "sci": "Pittosporum tenuifolium" },
+      { "id": "tarata", "common": "Lemonwood", "maori": "Tarata", "sci": "Pittosporum eugenioides" },
+      { "id": "koromiko", "common": "Koromiko", "maori": "Koromiko", "sci": "Veronica stricta" },
+      { "id": "ngaio", "common": "Ngaio", "maori": "Ngaio", "sci": "Myoporum laetum" },
+      { "id": "kawakawa", "common": "Kawakawa", "maori": "Kawakawa", "sci": "Piper excelsum" },
+      { "id": "akeake", "common": "Akeake", "maori": "Akeake", "sci": "Dodonaea viscosa" },
+      { "id": "purei", "common": "Swamp sedge", "maori": "Pūrei", "sci": "Carex secta" }
+    ],
+    "weeds": [
+      { "id": "tradescantia", "common": "Tradescantia", "maori": "", "sci": "Tradescantia fluminensis" },
+      { "id": "old-mans-beard", "common": "Old man's beard", "maori": "", "sci": "Clematis vitalba" },
+      { "id": "wild-ginger", "common": "Wild ginger", "maori": "", "sci": "Hedychium gardnerianum" },
+      { "id": "blackberry", "common": "Blackberry", "maori": "", "sci": "Rubus fruticosus agg." },
+      { "id": "japanese-honeysuckle", "common": "Japanese honeysuckle", "maori": "", "sci": "Lonicera japonica" },
+      { "id": "banana-passionfruit", "common": "Banana passionfruit", "maori": "", "sci": "Passiflora tarminiana" },
+      { "id": "ivy", "common": "Ivy", "maori": "", "sci": "Hedera helix" },
+      { "id": "agapanthus", "common": "Agapanthus", "maori": "", "sci": "Agapanthus praecox" },
+      { "id": "privet", "common": "Privet", "maori": "", "sci": "Ligustrum spp." },
+      { "id": "gorse", "common": "Gorse", "maori": "", "sci": "Ulex europaeus" },
+      { "id": "great-bindweed", "common": "Great bindweed", "maori": "", "sci": "Calystegia silvatica" },
+      { "id": "climbing-asparagus", "common": "Climbing asparagus", "maori": "", "sci": "Asparagus scandens" }
+    ],
+    "wildlife": [
+      { "id": "tui", "common": "Tūī", "maori": "Tūī", "sci": "Prosthemadera novaeseelandiae" },
+      { "id": "kereru", "common": "Wood pigeon", "maori": "Kererū", "sci": "Hemiphaga novaeseelandiae" },
+      { "id": "piwakawaka", "common": "Fantail", "maori": "Pīwakawaka", "sci": "Rhipidura fuliginosa" },
+      { "id": "riroriro", "common": "Grey warbler", "maori": "Riroriro", "sci": "Gerygone igata" },
+      { "id": "tauhou", "common": "Silvereye", "maori": "Tauhou", "sci": "Zosterops lateralis" },
+      { "id": "kotare", "common": "Kingfisher", "maori": "Kōtare", "sci": "Todiramphus sanctus" },
+      { "id": "ruru", "common": "Morepork", "maori": "Ruru", "sci": "Ninox novaeseelandiae" },
+      { "id": "korimako", "common": "Bellbird", "maori": "Korimako", "sci": "Anthornis melanura" },
+      { "id": "kowhai-tree", "common": "Kōwhai (tree)", "maori": "Kōwhai", "sci": "Sophora microphylla" },
+      { "id": "monarch", "common": "Monarch butterfly", "maori": "Kahuku", "sci": "Danaus plexippus" },
+      { "id": "skink", "common": "Skink", "maori": "Mokomoko", "sci": "Scincidae" },
+      { "id": "eel", "common": "Eel", "maori": "Tuna", "sci": "Anguilla spp." }
+    ],
+    "traps": [
+      { "id": "T01", "common": "T01 – DOC200, Sydney St berm", "maori": "", "sci": "" },
+      { "id": "T02", "common": "T02 – DOC200, playground edge", "maori": "", "sci": "" },
+      { "id": "T03", "common": "T03 – A24, notable rātā", "maori": "", "sci": "" },
+      { "id": "T04", "common": "T04 – Possum trap, school fence", "maori": "", "sci": "" },
+      { "id": "T05", "common": "T05 – Rat box, cycle path", "maori": "", "sci": "" },
+      { "id": "T06", "common": "T06 – Rat box, church grounds", "maori": "", "sci": "" }
+    ]
+  },
+  "embed_views": {
+    "_about": "Named views for /embed/?view=name. Any setting can also be given directly in the embed address, which overrides the view.",
+    "homepage": {
+      "title": "Our patch of Palmerston North",
+      "base": "aerial", "year": 2024, "zoom": 15.6,
+      "layers": ["records", "pncc_notable_trees"],
+      "available": ["inat_obs", "lidar_canopy", "hz_flood200"],
+      "legend": true
+    },
+    "planting": {
+      "title": "Planting this season",
+      "base": "aerial", "year": 2024,
+      "layers": ["records"], "tasks": ["planting"], "from": "2026-07",
+      "legend": true
+    },
+    "trap-results": {
+      "title": "Trap catches",
+      "base": "street",
+      "layers": ["records"], "tasks": ["trap-check"],
+      "legend": true
+    },
+    "then-2013": {
+      "title": "The square in 2013",
+      "base": "aerial", "year": 2013, "zoom": 16.3, "layers": [], "lock": true, "legend": false
+    },
+    "canopy": {
+      "title": "Tree canopy from LiDAR",
+      "base": "street", "layers": ["lidar_canopy", "pncc_notable_trees"], "available": ["inat_obs"], "legend": true
+    }
+  }
+}

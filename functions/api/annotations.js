@@ -29,7 +29,53 @@ function inArea([x, y]) {
   return typeof x === 'number' && typeof y === 'number' && x >= AREA.west && x <= AREA.east && y >= AREA.south && y <= AREA.north;
 }
 
-function cleanFeature(f) {
+// The organisation's settings (tasks, pick lists). Loaded from the site's own /config/site.json.
+async function loadConfig(env, request) {
+  try {
+    const r = env.ASSETS ? await env.ASSETS.fetch(new URL('/config/site.json', request.url)) : null;
+    return r && r.ok ? await r.json() : null;
+  } catch { return null; }
+}
+
+// Check a task record's fields against the settings, and work out whether it needs an ID check.
+function cleanTask(p, cfg, hasPhotos) {
+  const task = (cfg && cfg.tasks || []).find(t => t.id === p.task);
+  if (!task) throw new Error('That task is not set up for this map.');
+  const given = p.fields && typeof p.fields === 'object' ? p.fields : {};
+  const fields = {}; let needsId = false;
+  for (const fd of task.fields) {
+    const v = given[fd.id];
+    const empty = v === undefined || v === null || v === '' || (fd.type === 'list' && !(v && v.id));
+    if (empty) { if (fd.required) throw new Error(`“${fd.label}” is needed.`); continue; }
+    if (fd.type === 'list') {
+      const list = (cfg.lists || {})[fd.list] || [];
+      const other = v.id === 'other';
+      const item = list.find(i => i.id === v.id);
+      if (!item && !other) throw new Error(`“${fd.label}”: choose from the list.`);
+      const conf = (cfg.identification && cfg.identification.confidence || []).map(c => c.id).includes(v.confidence) ? v.confidence : null;
+      fields[fd.id] = other
+        ? { id: 'other', label: String(v.other || 'Not sure').trim().slice(0, 80) || 'Not sure', confidence: conf || 'unsure' }
+        : { id: item.id, label: item.common, sci: item.sci || '', confidence: fd.confidence === false ? null : conf };
+      if (fd.confidence !== false && (other || conf === 'unsure')) needsId = true;
+    } else if (fd.type === 'choice') {
+      if (!fd.options.includes(v)) throw new Error(`“${fd.label}”: choose one of the options.`);
+      fields[fd.id] = v;
+    } else if (fd.type === 'number') {
+      const n = Number(v);
+      if (!Number.isFinite(n) || n < (fd.min ?? -1e9) || n > (fd.max ?? 1e9)) throw new Error(`“${fd.label}” is out of range.`);
+      fields[fd.id] = Math.round(n * 100) / 100;
+    } else if (fd.type === 'yesno') {
+      fields[fd.id] = v === true || v === 'yes';
+    } else {
+      fields[fd.id] = String(v).trim().slice(0, fd.max || 200);
+    }
+  }
+  if (needsId && cfg.identification && cfg.identification.photo_required_when_unsure && !hasPhotos)
+    throw new Error('Add a photo so someone can check the identification.');
+  return { task, fields, needsId };
+}
+
+function cleanFeature(f, cfg) {
   const g = f && f.geometry;
   if (!g || !TYPES.includes(g.type)) throw new Error('Only points, lines and areas can be saved.');
   const pts = g.type === 'Point' ? [g.coordinates] : g.type === 'LineString' ? g.coordinates : (g.coordinates || [])[0];
@@ -48,6 +94,8 @@ function cleanFeature(f) {
     .map(ph => ({ url: ph.url, caption: str(ph.caption, 120), taken: str(ph.taken, 32), lat: num(ph.lat, -90, 90), lon: num(ph.lon, -180, 180) }));
   // Details captured automatically by the phone form.
   const m = p.meta || {};
+  let taskInfo = null;
+  if (p.task) taskInfo = cleanTask(p, cfg, photos.length > 0);
   const meta = {
     accuracy_m: num(m.accuracy_m, 0, 100000),
     position: ['gps', 'moved', 'photo', 'map'].includes(m.position) ? m.position : null,
@@ -57,13 +105,21 @@ function cleanFeature(f) {
     device: str(m.device, 60),
     via: ['phone', 'desktop', 'import'].includes(m.via) ? m.via : null,
   };
+  if (taskInfo) {
+    meta.task = taskInfo.task.id;
+    meta.fields = taskInfo.fields;
+    meta.review = { status: taskInfo.needsId ? 'needs-id' : 'unreviewed' };
+  }
+  const cats = (cfg && cfg.categories || []).map(c => c.id);
+  const catOk = c => CATS.includes(c) || cats.includes(c);
+  const cat = taskInfo && taskInfo.task.category && catOk(taskInfo.task.category) ? taskInfo.task.category : (catOk(p.cat) ? p.cat : 'Observation');
   return {
     type: 'Feature',
     geometry,
     properties: {
       id: crypto.randomUUID(),
       title: str(p.title, 80) || 'Untitled',
-      cat: CATS.includes(p.cat) ? p.cat : 'Observation',
+      cat,
       note: str(p.note, 400),
       by: str(p.by, 60),
       added: new Date().toISOString(),
@@ -86,7 +142,8 @@ export async function onRequestPost({ request, env }) {
     if (body.action === 'add') {
       const list = Array.isArray(body.features) ? body.features : [];
       if (!list.length || list.length > 50) return json({ error: 'Send between 1 and 50 annotations at a time.' }, 400);
-      return json(await callSheet(env, { action: 'add', features: list.map(cleanFeature) }));
+      const cfg = await loadConfig(env, request);
+      return json(await callSheet(env, { action: 'add', features: list.map(f => cleanFeature(f, cfg)) }));
     }
     if (body.action === 'delete') {
       const id = String(body.id || '');
