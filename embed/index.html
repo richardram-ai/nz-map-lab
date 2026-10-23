@@ -96,12 +96,19 @@ function showMsg(t){ $('msg').textContent = t; $('msg').hidden = false; }
   const tasks = Object.fromEntries((cfg.tasks || []).map(t => [t.id, t]));
 
   const style = { version:8, sources:{}, layers:[{ id:'bg', type:'background', paint:{ 'background-color':'#F5F7F3' } }] };
-  if (S.base === 'aerial') {
+  const hist = (cfg.area.historical_aerials || {})[S.year];
+  if (S.base === 'aerial' && hist) {
+    // Historical years are single images of the square (black and white before 2001).
+    const q = cfg.area.square;
+    style.sources.aer = { type:'image', url:hist.image, coordinates:[[q[0][0], q[1][1]], [q[1][0], q[1][1]], [q[1][0], q[0][1]], [q[0][0], q[0][1]]] };
+    style.layers.push({ id:'aer', type:'raster', source:'aer', paint:{ 'raster-fade-duration':0 } });
+    style.sources.credit = { type:'geojson', data:{ type:'FeatureCollection', features:[] }, attribution:'Aerial ' + S.year + ' © Toitū Te Whenua LINZ, CC BY 4.0' };
+  } else if (S.base === 'aerial') {
     style.sources.aer = { type:'raster', tiles:[location.origin + '/linz/aerial/{z}/{x}/{y}.png?year=' + (S.year || 2024)], tileSize:256, minzoom:12, maxzoom:21,
                           attribution:'Aerial ' + (S.year || 2024) + ' © Toitū Te Whenua LINZ, CC BY 4.0' };
     style.layers.push({ id:'aer', type:'raster', source:'aer' });
   }
-  const map = new maplibregl.Map({ container:'map', style, center:S.center, zoom:S.zoom, attributionControl:{ compact:true },
+  const map = new maplibregl.Map({ container:'map', style, center:S.center, zoom:S.zoom, attributionControl:{ compact:true }, maxZoom: hist ? 18.5 : 22,
     maxBounds:[[b.west - .01, b.south - .01], [b.east + .01, b.north + .01]], interactive:!S.lock, cooperativeGestures:!S.lock });
   if (!S.lock) map.addControl(new maplibregl.NavigationControl({ showCompass:false }), 'top-right');
   await new Promise(r => map.on('load', r));

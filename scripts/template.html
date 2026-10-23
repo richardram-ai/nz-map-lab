@@ -72,6 +72,8 @@ header{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px 32px;align
 .years button{font-variant-numeric:tabular-nums;padding:4px 9px}
 .years button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);font-weight:700;box-shadow:inset 0 -2px 0 var(--accent)}
 .years .sep{width:1px;height:22px;background:var(--rule);margin:0 6px}
+.years .histlab{font-size:.7rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-right:2px}
+.years button.old{border-style:dashed}
 .years button.cmp-on{border-color:var(--alert);color:var(--alert);font-weight:600}
 .years select{font:inherit;font-size:.82rem;padding:3px 4px;border:1px solid var(--rule);background:var(--bg);color:var(--ink)}
 .hist{position:relative}
@@ -416,6 +418,7 @@ const LAYERS=[
  {g:'Elevation and canopy (LiDAR)',id:'lidar_elev',label:'Ground height shading',kind:'image',on:false,color:'#78aa96',countText:'1 image',pub:'linz',v:'good',why:'Bare‑earth height from the 2018 Palmerston North LiDAR, 1 m grid. Ground runs from about 29 m to 35.5 m. Note the 2.7 m terrace step in the south‑east corner.'},
  {g:'Elevation and canopy (LiDAR)',id:'lidar_contours',label:'Contours, 0.5 m',kind:'contour',on:false,color:'#7a5a2c',pub:'linz',v:'good',why:'Generated here from the LiDAR ground model. On land this flat they show which way water drains, which official 20 m topo contours cannot.'},
  {g:'Elevation and canopy (LiDAR)',id:'lidar_canopy',label:'Tree canopy',kind:'canopy',on:false,color:'#3f8f56',pub:'linz',v:'good',why:'Derived here: surface height minus ground height, over 3 m tall, with OpenStreetMap buildings removed. About CANOPY% of the square. Built from 2018 data, so check it against the 2024 photo.'},
+ {g:'History',id:'hist_photos',label:'Old aerial photos, 1942–2001',kind:'circle',color:'#8a6a3c',r:5,on:false,pub:'linz',v:'coarse',why:'Centres of 47 historic survey photos taken over the square, from 1942 on. They are scanned film, not lined up with the map, so they can’t be overlaid; click one for the survey, run and photo number to find the scan on Retrolens. The 1979, 1992, 2001 and 2010 surveys are in the timeline.'},
  {g:'Planning and property',id:'pncc_zones',label:'District Plan zones',kind:'fill',color:'#6a4c9c',opacity:.08,outline:true,pub:'pncc',v:'good',why:'29 zone pieces. Tells you what land use is allowed where, which matters for planting or restoration proposals.'},
  {g:'Planning and property',id:'pncc_parcels',label:'Property parcels',kind:'outline',color:'#8f7fb5',width:.5,pub:'pncc',v:'good',why:'1,722 parcels, including road parcels. Good for working out which land is council‑owned.'},
  {g:'Planning and property',id:'pncc_heritage',label:'Heritage sites',kind:'circle',color:'#6a4c9c',r:5,pub:'pncc',v:'good',why:'Four listed heritage buildings or objects.'},
@@ -511,6 +514,8 @@ document.getElementById('linzkey').value=keyVal;
 const LOCAL_FILE=location.protocol==='file:';
 document.getElementById('linzkey').hidden=!LOCAL_FILE;
 function setBase(mode){
+  if(mode==='linz'&&typeof HIST!=='undefined'&&HIST.includes(yearA)){ yearA=2024; renderYears() }
+  if(mode!=='aerial') map.setMaxZoom(22);
   baseMode=mode; tilenote.hidden=true;
   if(mode==='osm'||mode==='aerial') LAYERS.filter(l=>l.base).forEach(l=>{const c=document.getElementById('chk-'+l.id); if(c) c.checked=(mode==='osm')});
   if(mode==='osm') map.setStyle(osmBaseStyle(),{diff:false});
@@ -570,6 +575,7 @@ function popupHTML(id,p){
     case 'pncc_zones': b=p.ZONE; break;
     case 'pncc_parcels': b='Parcel '+(p.PAR_ID||''); x=esc(p.FEATURE_CODE?titleCase(p.FEATURE_CODE):'');break;
     case 'pncc_storm_mains': b=titleCase(p.LOCATION)||'Stormwater pipe'; x=`${esc(p.DIAMETER)} mm ${esc(p.MATERIAL)} · ${esc(p.OWNER)}`;break;
+    case 'hist_photos': b='Aerial photo, '+new Date(p.date).toLocaleDateString('en-NZ',{day:'numeric',month:'short',year:'numeric'}); x=`Survey SN${esc(p.survey)}, run ${esc(p.run)}, photo ${esc(p.photo)} · 1:${Number(p.scale).toLocaleString('en-NZ')} · ${p.type==='B&W'?'black and white':esc(p.type)}${p.note?' · '+esc(p.note):''}<br>Search for it on <a href="https://retrolens.co.nz" target="_blank" rel="noopener">Retrolens</a> by survey number.`;break;
     case 'pncc_heritage': b=p.BLDG_OBJECT; x=esc(p.TYPE);break;
     case 'pncc_playgrounds': b=titleCase(p.PLAYGROUND_NAME); x=esc(titleCase(p.PLAYGROUND_CAT));break;
     case 'pncc_cycle': b=titleCase(p.ROAD_NAME); x=esc(p.FAC_TYPE_DESC)+' · '+esc(p.STATUS);break;
@@ -605,7 +611,7 @@ function annPopup(p){
   if(bits.length) h+=`<span class="mm">${bits.join(' · ')}</span>`;
   return h;
 }
-const CLICK_ORDER=['ann-pt','ann-line','ann-fill','inat_obs','pncc_notable_trees','osm_trees','hz_bore','pncc_heritage','pncc_playgrounds','pncc_cycle','pncc_storm_mains','lidar_contours','hz_flood200','lidar_canopy','osm_roads','osm_paths','pncc_parcels','osm_buildings','osm_green','pncc_zones','pncc_storm_catchment','hz_smap','hz_liquefaction','hz_water_area','lcdb'];
+const CLICK_ORDER=['ann-pt','ann-line','ann-fill','hist_photos','inat_obs','pncc_notable_trees','osm_trees','hz_bore','pncc_heritage','pncc_playgrounds','pncc_cycle','pncc_storm_mains','lidar_contours','hz_flood200','lidar_canopy','osm_roads','osm_paths','pncc_parcels','osm_buildings','osm_green','pncc_zones','pncc_storm_catchment','hz_smap','hz_liquefaction','hz_water_area','lcdb'];
 map.on('click',e=>{
   if(drawMode) return;
   const ids=CLICK_ORDER.filter(id=>map.getLayer(id)&&map.getLayoutProperty(id,'visibility')!=='none');
@@ -713,8 +719,9 @@ function loadGeo(txt){
 document.getElementById('io-import').addEventListener('click',()=>{if(io.value.trim())loadGeo(io.value);else iomsg.textContent='Paste GeoJSON into the box first.'});
 document.getElementById('io-file').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>loadGeo(r.result);r.readAsText(f)});
 // ---------- timeline ----------
-const YEARS=[2013,2015,2017,2018,2022,2024];
-const YEARNOTE={2013:'Flown 2012–13, 12.5 cm',2015:'2015, 12.5 cm',2017:'2017, 12.5 cm',2018:'2018, 12.5 cm',2022:'2022, 12.5 cm',2024:'2024, 10 cm'};
+const HIST=[1979,1992,2001,2010]; // older surveys: built-in images only, no LINZ map service
+const YEARS=[...HIST,2013,2015,2017,2018,2022,2024];
+const YEARNOTE={1979:'1979–80, 37.5 cm, black and white',1992:'1992, 40 cm, black and white',2001:'2001, 75 cm, colour',2010:'2010–11, 40 cm, colour',2013:'Flown 2012–13, 12.5 cm',2015:'2015, 12.5 cm',2017:'2017, 12.5 cm',2018:'2018, 12.5 cm',2022:'2022, 12.5 cm',2024:'2024, 10 cm'};
 const LOCAL_YEARS={}; // images loaded so far
 let yearA=2024, yearB=2013, comparing=false;
 function yearSrc(y){return y===2024?IMG.aerial:'imagery/aerial-'+y+'.jpg'}
@@ -725,7 +732,10 @@ function loadYearImg(y){
 function paint(canvasId,im){const c=document.getElementById(canvasId);c.width=im.naturalWidth;c.height=im.naturalHeight;c.getContext('2d').drawImage(im,0,0)}
 async function setYearA(y){
   yearA=y; renderYears();
-  if(baseMode==='linz'){setBase('linz');return}
+  const old=HIST.includes(y);
+  if(baseMode==='linz'&&!old){setBase('linz');return}
+  if(baseMode==='linz'&&old){document.getElementById('base-aerial').checked=true}
+  map.setMaxZoom(old?18.5:22);
   try{const im=await loadYearImg(y); paint('cv-aerial',im); imgReady.aerial=true;
     if(baseMode!=='aerial'){document.getElementById('base-aerial').checked=true}
     setBase('aerial');
@@ -781,7 +791,7 @@ async function toggleCompare(){
 })();
 function renderYears(){
   const box=document.getElementById('years');
-  let h=YEARS.map(y=>`<button type="button" data-y="${y}" aria-pressed="${y===yearA&&(baseMode==='aerial'||baseMode==='linz')}" title="${YEARNOTE[y]}">${y}</button>`).join('');
+  let h=YEARS.map(y=>`${y===HIST[0]?'<span class="histlab">Historical</span>':''}${y===2013?'<span class="sep"></span>':''}<button type="button" data-y="${y}" class="${HIST.includes(y)?'old':''}" aria-pressed="${y===yearA&&(baseMode==='aerial'||baseMode==='linz')}" title="${YEARNOTE[y]}">${y}</button>`).join('');
   h+=`<span class="sep"></span><button type="button" id="cmp" class="${comparing?'cmp-on':''}" aria-pressed="${comparing}">${comparing?'Stop comparing':'Compare two years'}</button>`;
   if(comparing) h+=` <label class="hint" style="display:flex;gap:4px;align-items:center">right side <select id="yB">${YEARS.map(y=>`<option${y===yearB?' selected':''}>${y}</option>`).join('')}</select></label>`;
   box.innerHTML=h;

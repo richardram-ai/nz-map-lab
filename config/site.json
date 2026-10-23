@@ -13,7 +13,14 @@
     "centre": [175.6195385, -40.349756],
     "zoom": 16.3,
     "aerial_years": [2013, 2015, 2017, 2018, 2022, 2024],
-    "linz_layers": { "2013": 52338, "2015": 88138, "2017": 99251, "2018": 105192, "2022": 111539, "2024": 119050 }
+    "linz_layers": { "2013": 52338, "2015": 88138, "2017": 99251, "2018": 105192, "2022": 111539, "2024": 119050 },
+    "historical_aerials": {
+      "_about": "Older surveys with no LINZ map service, cut once to an image of the square (scripts/hist_aerial.py). Shown up to zoom 18.5.",
+      "1979": { "image": "/imagery/aerial-1979.jpg", "note": "1979–80, 37.5 cm, black and white", "survey": "SN5408" },
+      "1992": { "image": "/imagery/aerial-1992.jpg", "note": "1992, 40 cm, black and white", "survey": "SN11922" },
+      "2001": { "image": "/imagery/aerial-2001.jpg", "note": "2001, 75 cm, colour", "survey": "SNC25061" },
+      "2010": { "image": "/imagery/aerial-2010.jpg", "note": "2010–11, 40 cm, colour", "survey": "Manawatū-Whanganui rural 2010–11" }
+    }
   },
   "categories": [
     { "id": "Observation", "label": "Observation", "colour": "#28699a" },
