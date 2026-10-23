@@ -8,12 +8,15 @@
 <style>
 /* Layout: print-first document — details block, map + layer list side by side (stacking on phones), then the findings that feed the scoping work. White page, colour carried by rules, swatches and text. */
 :root{
-  --bg:#ffffff;
-  --ink:#1b2722;
-  --muted:#5a6862;
-  --rule:#cdd7d2;
-  --soft:#f2f6f4;
-  --accent:#2c7a4b;
+  --bg:#F5F7F3;
+  --card:#FCFDFB;
+  --sage:#E1E8DC;
+  --ink:#303A2E;
+  --muted:#5f6b5a;
+  --rule:#B8C5B0;
+  --soft:#E1E8DC;
+  --accent:#56664D;
+  --accent-ink:#FCFDFB;
   --water:#28699a;
   --hazard:#a8661a;
   --plan:#6a4c9c;
@@ -24,12 +27,12 @@
   --font-mono:"Aptos Mono","SFMono-Regular",Consolas,"Liberation Mono",monospace;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#111715;--ink:#e2eae6;--muted:#9caba4;--rule:#33403a;--soft:#1a2320;
-  --accent:#5fb882;--water:#6aa8d6;--hazard:#d89a4c;--plan:#a68bd6;--alert:#e66a7f;
+  --bg:#151a14;--card:#1c2219;--sage:#262e22;--ink:#e3e8df;--muted:#a2ad9c;--rule:#3a4535;--soft:#262e22;
+  --accent:#9db08f;--accent-ink:#151a14;--water:#6aa8d6;--hazard:#d89a4c;--plan:#a68bd6;--alert:#e66a7f;
   --good:#5fb882;--coarse:#d89a4c;--empty:#8d9a94;color-scheme:dark}}
 :root[data-theme="dark"]{
-  --bg:#111715;--ink:#e2eae6;--muted:#9caba4;--rule:#33403a;--soft:#1a2320;
-  --accent:#5fb882;--water:#6aa8d6;--hazard:#d89a4c;--plan:#a68bd6;--alert:#e66a7f;
+  --bg:#151a14;--card:#1c2219;--sage:#262e22;--ink:#e3e8df;--muted:#a2ad9c;--rule:#3a4535;--soft:#262e22;
+  --accent:#9db08f;--accent-ink:#151a14;--water:#6aa8d6;--hazard:#d89a4c;--plan:#a68bd6;--alert:#e66a7f;
   --good:#5fb882;--coarse:#d89a4c;--empty:#8d9a94;color-scheme:dark}
 
 *{box-sizing:border-box}
@@ -173,6 +176,35 @@ footer{font-size:.78rem;color:var(--muted);border-top:1px solid var(--rule);padd
 .phonebox #qr img,.phonebox #qr canvas{width:76px!important;height:76px!important}
 .maplibregl-popup-content .src{color:#5a6862;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em}
 .maplibregl-ctrl-attrib{font-size:10px}
+
+/* ---- theme: soft sage surfaces ---- */
+.mapcol>.basebar,.timeline,.drawbar,.embedbox,.panel,.cols>div,.tablewrap,.gaps li{background:var(--card)}
+.mapcol>.basebar,.drawbar{border:1px solid var(--rule);border-radius:10px;padding:8px 12px}
+.timeline{border:1px solid var(--rule);border-top:3px solid var(--accent);border-radius:10px;padding:12px 14px}
+.embedbox{border-radius:10px;padding:10px 14px}
+.panel{border:1px solid var(--rule);border-radius:12px;padding:14px 16px}
+.group h3{color:var(--accent)}
+.cols>div{border:1px solid var(--rule);border-radius:10px;padding:14px 16px}
+.tablewrap{border:1px solid var(--rule);border-radius:10px;padding:6px 10px}
+.gaps li{border-radius:0 8px 8px 0;padding:8px 12px}
+#map,#map2{border-color:var(--rule);border-radius:10px;overflow:hidden}
+#map{background:var(--sage)}
+header{border-bottom-color:var(--rule)}
+h2{border-bottom-color:var(--rule);color:var(--ink)}
+h2::after{content:"";display:block;width:56px;height:3px;background:var(--accent);margin-top:6px;margin-bottom:-9px}
+button{background:var(--card);border-color:var(--rule);border-radius:6px;transition:background .15s,border-color .15s}
+button:hover{background:var(--sage);border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+button.primary:hover{background:color-mix(in srgb,var(--accent) 88%,black)}
+.years button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);box-shadow:none}
+input[type=text],textarea,select{background:var(--card)!important;border-color:var(--rule)!important;border-radius:6px}
+.annlist li{border-bottom-color:var(--sage)}
+.phonebox{background:var(--sage);border:none;border-radius:10px}
+.maplibregl-popup-content{background:#FCFDFB;color:#303A2E;border-radius:10px;box-shadow:0 2px 10px rgba(48,58,46,.18)}
+.maplibregl-popup-tip{border-top-color:#FCFDFB!important;border-bottom-color:#FCFDFB!important}
+th{border-bottom-color:var(--accent)}
+input[type=checkbox],input[type=radio]{accent-color:var(--accent)}
+@media print{body,.mapcol>.basebar,.timeline,.drawbar,.panel,.cols>div,.tablewrap,.gaps li,.phonebox{background:#fff!important}}
 
 @media (max-width:900px){
   .workspace{grid-template-columns:minmax(0,1fr)}
@@ -410,7 +442,7 @@ function saveAnn(){try{localStorage.setItem(SKEY,JSON.stringify(ANN));stored=tru
 // ---------- map styles ----------
 const IMGBOX=[[BOX[0][0],BOX[1][1]],[BOX[1][0],BOX[1][1]],[BOX[1][0],BOX[0][1]],[BOX[0][0],BOX[0][1]]];
 function aerialStyle(){return {version:8,sources:{aer:{type:'canvas',canvas:'cv-aerial',coordinates:IMGBOX,animate:false}},layers:[{id:'bg',type:'background',paint:{'background-color':'#f4f5f3'}},{id:'aer',type:'raster',source:'aer',paint:{'raster-fade-duration':0}}]}}
-function osmBaseStyle(){return {version:8,sources:{},layers:[{id:'bg',type:'background',paint:{'background-color':'#f4f5f3'}}]}}
+function osmBaseStyle(){return {version:8,sources:{},layers:[{id:'bg',type:'background',paint:{'background-color':'#F5F7F3'}}]}}
 function rasterStyle(tiles,attr,max){return {version:8,sources:{r:{type:'raster',tiles:[tiles],tileSize:256,maxzoom:max||19,attribution:attr}},layers:[{id:'bg',type:'background',paint:{'background-color':'#f4f5f3'}},{id:'r',type:'raster',source:'r'}]}}
 let baseMode='aerial';
 // Images are drawn into canvases first: the artifact frame blocks MapLibre from fetching data: URLs, but <img> can load them.

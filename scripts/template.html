@@ -6,12 +6,15 @@
 <style>
 /* Layout: print-first document — details block, map + layer list side by side (stacking on phones), then the findings that feed the scoping work. White page, colour carried by rules, swatches and text. */
 :root{
-  --bg:#ffffff;
-  --ink:#1b2722;
-  --muted:#5a6862;
-  --rule:#cdd7d2;
-  --soft:#f2f6f4;
-  --accent:#2c7a4b;
+  --bg:#F5F7F3;
+  --card:#FCFDFB;
+  --sage:#E1E8DC;
+  --ink:#303A2E;
+  --muted:#5f6b5a;
+  --rule:#B8C5B0;
+  --soft:#E1E8DC;
+  --accent:#56664D;
+  --accent-ink:#FCFDFB;
   --water:#28699a;
   --hazard:#a8661a;
   --plan:#6a4c9c;
@@ -22,12 +25,12 @@
   --font-mono:"Aptos Mono","SFMono-Regular",Consolas,"Liberation Mono",monospace;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#111715;--ink:#e2eae6;--muted:#9caba4;--rule:#33403a;--soft:#1a2320;
-  --accent:#5fb882;--water:#6aa8d6;--hazard:#d89a4c;--plan:#a68bd6;--alert:#e66a7f;
+  --bg:#151a14;--card:#1c2219;--sage:#262e22;--ink:#e3e8df;--muted:#a2ad9c;--rule:#3a4535;--soft:#262e22;
+  --accent:#9db08f;--accent-ink:#151a14;--water:#6aa8d6;--hazard:#d89a4c;--plan:#a68bd6;--alert:#e66a7f;
   --good:#5fb882;--coarse:#d89a4c;--empty:#8d9a94;color-scheme:dark}}
 :root[data-theme="dark"]{
-  --bg:#111715;--ink:#e2eae6;--muted:#9caba4;--rule:#33403a;--soft:#1a2320;
-  --accent:#5fb882;--water:#6aa8d6;--hazard:#d89a4c;--plan:#a68bd6;--alert:#e66a7f;
+  --bg:#151a14;--card:#1c2219;--sage:#262e22;--ink:#e3e8df;--muted:#a2ad9c;--rule:#3a4535;--soft:#262e22;
+  --accent:#9db08f;--accent-ink:#151a14;--water:#6aa8d6;--hazard:#d89a4c;--plan:#a68bd6;--alert:#e66a7f;
   --good:#5fb882;--coarse:#d89a4c;--empty:#8d9a94;color-scheme:dark}
 
 *{box-sizing:border-box}
@@ -150,6 +153,17 @@ td.num{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
 section{display:flex;flex-direction:column;gap:12px}
 footer{font-size:.78rem;color:var(--muted);border-top:1px solid var(--rule);padding-top:10px}
 
+.embedbox{border:1px solid var(--rule);padding:8px 12px;display:flex;flex-direction:column;gap:8px}
+.embedbox summary{cursor:pointer;font-weight:700;color:var(--accent)}
+.embedbox[open]{gap:8px}
+.emb-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 16px;font-size:.84rem}
+.emb-grid label{display:flex;flex-direction:column;gap:2px}
+.emb-grid label.ck{flex-direction:row;gap:6px;align-items:center}
+.emb-grid input[type=text]{font:inherit;font-size:.85rem;padding:5px 7px;border:1px solid var(--rule);background:var(--bg);color:var(--ink)}
+.emb-avail{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:.8rem;color:var(--muted)}
+.emb-avail label{display:flex;gap:4px;align-items:center}
+.embedbox textarea{font-family:var(--font-mono);font-size:.74rem;padding:6px;border:1px solid var(--rule);background:var(--bg);color:var(--ink);width:100%}
+@media (max-width:600px){.emb-grid{grid-template-columns:minmax(0,1fr)}}
 .maplibregl-popup-content{font-family:var(--font-body);font-size:.82rem;color:#1b2722;padding:10px 12px;max-width:260px}
 .maplibregl-popup-content b{display:block;font-size:.9rem;margin-bottom:2px}
 .maplibregl-popup-content .pp{display:flex;gap:4px;margin:6px 0}
@@ -160,6 +174,35 @@ footer{font-size:.78rem;color:var(--muted);border-top:1px solid var(--rule);padd
 .phonebox #qr img,.phonebox #qr canvas{width:76px!important;height:76px!important}
 .maplibregl-popup-content .src{color:#5a6862;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em}
 .maplibregl-ctrl-attrib{font-size:10px}
+
+/* ---- theme: soft sage surfaces ---- */
+.mapcol>.basebar,.timeline,.drawbar,.embedbox,.panel,.cols>div,.tablewrap,.gaps li{background:var(--card)}
+.mapcol>.basebar,.drawbar{border:1px solid var(--rule);border-radius:10px;padding:8px 12px}
+.timeline{border:1px solid var(--rule);border-top:3px solid var(--accent);border-radius:10px;padding:12px 14px}
+.embedbox{border-radius:10px;padding:10px 14px}
+.panel{border:1px solid var(--rule);border-radius:12px;padding:14px 16px}
+.group h3{color:var(--accent)}
+.cols>div{border:1px solid var(--rule);border-radius:10px;padding:14px 16px}
+.tablewrap{border:1px solid var(--rule);border-radius:10px;padding:6px 10px}
+.gaps li{border-radius:0 8px 8px 0;padding:8px 12px}
+#map,#map2{border-color:var(--rule);border-radius:10px;overflow:hidden}
+#map{background:var(--sage)}
+header{border-bottom-color:var(--rule)}
+h2{border-bottom-color:var(--rule);color:var(--ink)}
+h2::after{content:"";display:block;width:56px;height:3px;background:var(--accent);margin-top:6px;margin-bottom:-9px}
+button{background:var(--card);border-color:var(--rule);border-radius:6px;transition:background .15s,border-color .15s}
+button:hover{background:var(--sage);border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+button.primary:hover{background:color-mix(in srgb,var(--accent) 88%,black)}
+.years button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);box-shadow:none}
+input[type=text],textarea,select{background:var(--card)!important;border-color:var(--rule)!important;border-radius:6px}
+.annlist li{border-bottom-color:var(--sage)}
+.phonebox{background:var(--sage);border:none;border-radius:10px}
+.maplibregl-popup-content{background:#FCFDFB;color:#303A2E;border-radius:10px;box-shadow:0 2px 10px rgba(48,58,46,.18)}
+.maplibregl-popup-tip{border-top-color:#FCFDFB!important;border-bottom-color:#FCFDFB!important}
+th{border-bottom-color:var(--accent)}
+input[type=checkbox],input[type=radio]{accent-color:var(--accent)}
+@media print{body,.mapcol>.basebar,.timeline,.drawbar,.panel,.cols>div,.tablewrap,.gaps li,.phonebox{background:#fff!important}}
 
 @media (max-width:900px){
   .workspace{grid-template-columns:minmax(0,1fr)}
@@ -239,6 +282,24 @@ footer{font-size:.78rem;color:var(--muted);border-top:1px solid var(--rule);padd
       <button id="d-cancel" type="button" hidden>Cancel</button>
       <span class="hint" id="d-hint">Pick a tool, then click the map.</span>
     </div>
+    <details class="embedbox no-print" id="embedbox">
+      <summary>Get embed code</summary>
+      <p class="hint">Set the map up the way you want it (position, zoom, layers, photo year, dates), then copy the code into a web page. The embed shows the layers that are on now; tick extra layers to offer them in its legend, switched off.</p>
+      <div class="emb-grid">
+        <label>Title shown on the map <input type="text" id="emb-title" maxlength="80" placeholder="Optional"></label>
+        <label class="ck"><input type="checkbox" id="emb-legend" checked> Show a layer legend</label>
+        <label class="ck"><input type="checkbox" id="emb-lock"> Lock the view (no panning or zooming)</label>
+        <label class="ck"><input type="checkbox" id="emb-open"> <span id="emb-open-lab">Open a record's card: click one on the map first</span></label>
+        <label class="ck"><input type="checkbox" id="emb-hide"> Hide records that need an ID check</label>
+      </div>
+      <div class="emb-avail" id="emb-avail"></div>
+      <label class="hint" for="emb-url">Link</label>
+      <textarea id="emb-url" readonly rows="2"></textarea>
+      <label class="hint" for="emb-code">Embed code</label>
+      <textarea id="emb-code" readonly rows="3"></textarea>
+      <div class="row" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><button type="button" id="emb-copy-url">Copy link</button><button type="button" id="emb-copy-code" class="primary">Copy embed code</button><a id="emb-preview" target="_blank" rel="noopener">Preview ↗</a><span class="hint" id="emb-msg"></span></div>
+      <p class="hint" id="emb-views"></p>
+    </details>
   </div>
 
   <aside class="panel" aria-label="Layers">
@@ -379,7 +440,7 @@ function saveAnn(){try{localStorage.setItem(SKEY,JSON.stringify(ANN));stored=tru
 // ---------- map styles ----------
 const IMGBOX=[[BOX[0][0],BOX[1][1]],[BOX[1][0],BOX[1][1]],[BOX[1][0],BOX[0][1]],[BOX[0][0],BOX[0][1]]];
 function aerialStyle(){return {version:8,sources:{aer:{type:'canvas',canvas:'cv-aerial',coordinates:IMGBOX,animate:false}},layers:[{id:'bg',type:'background',paint:{'background-color':'#f4f5f3'}},{id:'aer',type:'raster',source:'aer',paint:{'raster-fade-duration':0}}]}}
-function osmBaseStyle(){return {version:8,sources:{},layers:[{id:'bg',type:'background',paint:{'background-color':'#f4f5f3'}}]}}
+function osmBaseStyle(){return {version:8,sources:{},layers:[{id:'bg',type:'background',paint:{'background-color':'#F5F7F3'}}]}}
 function rasterStyle(tiles,attr,max){return {version:8,sources:{r:{type:'raster',tiles:[tiles],tileSize:256,maxzoom:max||19,attribution:attr}},layers:[{id:'bg',type:'background',paint:{'background-color':'#f4f5f3'}},{id:'r',type:'raster',source:'r'}]}}
 let baseMode='aerial';
 // Images are drawn into canvases first: the artifact frame blocks MapLibre from fetching data: URLs, but <img> can load them.
@@ -422,11 +483,11 @@ function addOverlays(){
   map.addSource('centre',{type:'geojson',data:{type:'Feature',properties:{},geometry:{type:'Point',coordinates:CENTER}}});
   map.addLayer({id:'centre',type:'circle',source:'centre',paint:{'circle-radius':6,'circle-color':'#ffffff','circle-stroke-color':'#b8334a','circle-stroke-width':3}});
   // annotations
-  map.addSource('ann',{type:'geojson',data:ANN});
+  map.addSource('ann',{type:'geojson',data:annData()});
   const ccol=['match',['get','cat'],...Object.entries(CATS).flat(),'#b8334a'];
   map.addLayer({id:'ann-fill',type:'fill',source:'ann',filter:['==',['geometry-type'],'Polygon'],paint:{'fill-color':ccol,'fill-opacity':.18}});
   map.addLayer({id:'ann-line',type:'line',source:'ann',filter:['!=',['geometry-type'],'Point'],paint:{'line-color':ccol,'line-width':3}});
-  map.addLayer({id:'ann-pt',type:'circle',source:'ann',filter:['==',['geometry-type'],'Point'],paint:{'circle-radius':7,'circle-color':ccol,'circle-stroke-color':'#ffffff','circle-stroke-width':2}});
+  map.addLayer({id:'ann-pt',type:'circle',source:'ann',filter:['==',['geometry-type'],'Point'],paint:{'circle-radius':7,'circle-color':['case',['get','_needs'],'#ffffff',ccol],'circle-stroke-color':['case',['get','_needs'],ccol,'#ffffff'],'circle-stroke-width':['case',['get','_needs'],3,2]}});
   map.addSource('draft',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
   map.addLayer({id:'draft-fill',type:'fill',source:'draft',filter:['==',['geometry-type'],'Polygon'],paint:{'fill-color':'#b8334a','fill-opacity':.12}});
   map.addLayer({id:'draft-line',type:'line',source:'draft',filter:['!=',['geometry-type'],'Point'],paint:{'line-color':'#b8334a','line-width':2,'line-dasharray':[2,1]}});
@@ -533,7 +594,12 @@ function annPopup(p){
   const photos=Array.isArray(p.photos)?p.photos:[]; const m=(p.meta&&typeof p.meta==='object')?p.meta:{};
   const when=p.added?new Date(p.added).toLocaleString('en-NZ',{day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'}):'';
   const posTxt={gps:`GPS ±${m.accuracy_m} m`,moved:'pin moved by hand',map:'placed on the map',photo:'from photo location'}[m.position]||'';
-  let h=`<span class="src">Annotation · ${esc(p.cat)}</span><b>${esc(p.title)}</b>${p.note?esc(p.note)+'<br>':''}`;
+  const task=DSET&&m.task?(DSET.tasks||[]).find(t=>t.id===m.task):null;
+  let h=`<span class="src">${esc(task?task.label:'Annotation')} · ${esc(p.cat)}</span><b>${esc(p.title)}${m.review&&m.review.status==='needs-id'?' <span style="color:#a8661a;font-size:.7rem;border:1.5px solid currentColor;border-radius:3px;padding:0 3px">Needs ID</span>':''}</b>`;
+  if(m.fields&&typeof m.fields==='object'){ const defs=task?task.fields:Object.keys(m.fields).map(k=>({id:k,label:k}));
+    const rows=defs.filter(fd=>m.fields[fd.id]!==undefined&&fd.id!=='title').map(fd=>{let v=m.fields[fd.id]; if(v&&typeof v==='object') v=v.label+(v.sci?` (${v.sci})`:'')+(v.confidence==='think'?', probably':v.confidence==='unsure'&&v.label!=='Not sure'?', not sure':''); if(v===true)v='Yes'; if(v===false)v='No'; return `<span class="mm" style="margin:0;color:#1b2722">${esc(fd.label)}: ${esc(v)}</span>`}).join('');
+    h+=rows; }
+  if(p.note) h+=esc(p.note)+'<br>';
   if(photos.length) h+=`<span class="pp">${photos.map(ph=>`<a href="${esc(ph.url)}" target="_blank" rel="noopener"><img src="${esc(ph.url)}" alt="${esc(ph.caption||p.title)}" loading="lazy"></a>`).join('')}</span>`;
   const bits=[p.by?'By '+esc(p.by):'', when, posTxt, m.via==='phone'?'from a phone':''].filter(Boolean);
   if(bits.length) h+=`<span class="mm">${bits.join(' · ')}</span>`;
@@ -547,7 +613,7 @@ map.on('click',e=>{
   if(!fs.length) return;
   fs.sort((a,b)=>ids.indexOf(a.layer.id)-ids.indexOf(b.layer.id));
   const f=fs[0]; let html;
-  if(f.layer.id.startsWith('ann-')){const full=(ANN.features.find(a=>a.properties.id===f.properties.id)||{properties:f.properties}).properties; html=annPopup(full)}
+  if(f.layer.id.startsWith('ann-')){const full=(ANN.features.find(a=>a.properties.id===f.properties.id)||{properties:f.properties}).properties; html=annPopup(full); lastOpen={id:full.id,title:full.title}; updateEmbed()}
   else html=popupHTML(f.layer.id,f.properties);
   new maplibregl.Popup({maxWidth:'280px'}).setLngLat(e.lngLat).setHTML(html).addTo(map);
 });
@@ -608,7 +674,8 @@ form.addEventListener('submit',e=>{
 });
 document.getElementById('a-discard').addEventListener('click',()=>{pending=null;form.hidden=true;cancelDraw()});
 
-function refreshAnnSource(){map.getSource('ann')?.setData(ANN)}
+function annData(){return {type:'FeatureCollection',features:ANN.features.map(f=>({...f,properties:{...f.properties,_needs:!!(f.properties.meta&&f.properties.meta.review&&f.properties.meta.review.status==='needs-id')}}))}}
+function refreshAnnSource(){map.getSource('ann')?.setData(annData())}
 function centroid(g){const c=g.type==='Point'?[g.coordinates]:(g.type==='LineString'?g.coordinates:g.coordinates[0]);return [c.reduce((a,b)=>a+b[0],0)/c.length,c.reduce((a,b)=>a+b[1],0)/c.length]}
 function renderAnnList(){
   const ul=document.getElementById('annlist'); ul.innerHTML='';
@@ -779,6 +846,47 @@ document.getElementById('t-play').addEventListener('click',()=>{
   document.getElementById('t-play').textContent='■ Stop'; step(); playT=setInterval(step,1300);
 });
 window.addEventListener('resize',()=>applyTime());
+
+// ---------- settings file + embed code ----------
+let DSET=null, lastOpen=null;
+const SITE=(/pages\.dev$|^localhost$/.test(location.hostname))?location.origin:'https://nz-map-lab.pages.dev';
+const EMBED_LAYERS=['inat_obs','pncc_notable_trees','osm_trees','lidar_canopy','lidar_contours','hz_flood200','pncc_storm_mains','pncc_zones','pncc_parcels','pncc_heritage','pncc_playgrounds','pncc_cycle','hz_liquefaction'];
+(async()=>{ try{ const r=await fetch('/config/site.json'); if(r.ok){ DSET=await r.json(); renderEmbedViews() } }catch(e){} })();
+function renderEmbedViews(){ const v=DSET&&DSET.embed_views; if(!v) return; const names=Object.keys(v).filter(k=>!k.startsWith('_'));
+  document.getElementById('emb-views').innerHTML='Ready-made views from the settings file: '+names.map(n=>`<a href="${SITE}/embed/?view=${encodeURIComponent(n)}" target="_blank" rel="noopener">${esc(v[n].title||n)}</a>`).join(' · '); }
+function renderAvail(){ const box=document.getElementById('emb-avail'); const prev=new Set([...box.querySelectorAll('input:checked')].map(i=>i.value));
+  const off=EMBED_LAYERS.filter(id=>{const c=document.getElementById('chk-'+id);return c&&!c.checked});
+  box.innerHTML=off.length?'Also offer in the legend: '+off.map(id=>{const L=LAYERS.find(l=>l.id===id);return `<label><input type="checkbox" value="${id}" ${prev.has(id)?'checked':''}>${esc(L?L.label:id)}</label>`}).join(''):''; }
+function updateEmbed(){
+  if(!document.getElementById('embedbox').open) return;
+  const q=new URLSearchParams(); const c=map.getCenter();
+  const title=document.getElementById('emb-title').value.trim(); if(title) q.set('title',title);
+  if(baseMode==='aerial'||baseMode==='linz'){ q.set('base','aerial'); q.set('year',yearA) } else q.set('base','street');
+  q.set('center',c.lng.toFixed(5)+','+c.lat.toFixed(5)); q.set('zoom',map.getZoom().toFixed(1));
+  const on=['records',...EMBED_LAYERS.filter(id=>{const k=document.getElementById('chk-'+id);return k&&k.checked})];
+  q.set('layers',on.join(','));
+  const av=[...document.querySelectorAll('#emb-avail input:checked')].map(i=>i.value); if(av.length) q.set('available',av.join(','));
+  const [a,b]=range(); if(a>0||b<NM){ q.set('from',monthStr(a)); q.set('to',monthStr(b)) }
+  if(!document.getElementById('emb-legend').checked) q.set('legend','0');
+  if(document.getElementById('emb-lock').checked) q.set('lock','1');
+  if(document.getElementById('emb-hide').checked) q.set('unconfirmed','hide');
+  const ol=document.getElementById('emb-open'); ol.disabled=!lastOpen; document.getElementById('emb-open-lab').textContent=lastOpen?`Open the card for “${lastOpen.title}”`:'Open a record\'s card: click one on the map first';
+  if(lastOpen&&ol.checked) q.set('open',lastOpen.id);
+  const url=SITE+'/embed/?'+q.toString().replace(/%2C/g,',');
+  document.getElementById('emb-url').value=url;
+  document.getElementById('emb-code').value=`<iframe src="${url}" width="100%" height="480" style="border:0;max-width:100%" loading="lazy" title="${esc(title||'Map')}" allow="fullscreen"></iframe>`;
+  document.getElementById('emb-preview').href=url;
+}
+document.getElementById('embedbox').addEventListener('toggle',()=>{renderAvail();updateEmbed()});
+document.getElementById('embedbox').addEventListener('input',updateEmbed);
+document.getElementById('embedbox').addEventListener('change',updateEmbed);
+map.on('moveend',updateEmbed);
+document.getElementById('layers').addEventListener('change',()=>{renderAvail();updateEmbed()});
+document.getElementById('years').addEventListener('click',()=>setTimeout(updateEmbed,50));
+[tFrom,tTo].forEach(el=>el.addEventListener('input',updateEmbed));
+function copyField(id,btn){ const el=document.getElementById(id); navigator.clipboard.writeText(el.value).then(()=>{document.getElementById('emb-msg').textContent='Copied.'}).catch(()=>{el.select();document.getElementById('emb-msg').textContent='Press Ctrl+C or ⌘C to copy.'}) }
+document.getElementById('emb-copy-url').addEventListener('click',()=>copyField('emb-url'));
+document.getElementById('emb-copy-code').addEventListener('click',()=>copyField('emb-code'));
 
 // ---------- shared annotations (Google Sheet via /api/annotations on the hosted site) ----------
 let SHARED=false, lastLoad=new Date();

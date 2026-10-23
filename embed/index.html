@@ -8,13 +8,17 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.css">
 <style>
 /* Embed: the map fills the frame; a title chip top-left, a compact legend bottom-left, a link to the full map bottom-right. */
-:root{--ink:#1b2722;--muted:#5a6862;--rule:#d3dcd7;--card:#ffffff;--accent:#2c7a4b;--water:#28699a;--warn:#a8661a;
+:root{--ink:#303A2E;--muted:#5f6b5a;--rule:#B8C5B0;--card:#FCFDFB;--sage:#E1E8DC;--accent:#56664D;--water:#28699a;--warn:#a8661a;
   --font:"Aptos","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
-html,body{margin:0;height:100%;background:#eef1ee;font-family:var(--font);color:var(--ink)}
+html,body{margin:0;height:100%;background:#E1E8DC;font-family:var(--font);color:var(--ink)}
 #map{position:absolute;inset:0}
-.card{background:var(--card);border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+.card{background:var(--card);border:1px solid var(--rule);border-radius:10px;box-shadow:0 2px 8px rgba(48,58,46,.16)}
+#title{border-left:4px solid var(--accent)}
+#legend input{accent-color:var(--accent)}
+#legend summary{color:var(--accent)}
+.maplibregl-popup-content{background:var(--card);border-radius:10px;box-shadow:0 2px 10px rgba(48,58,46,.18)}
 #title{position:absolute;top:10px;left:10px;z-index:3;padding:6px 10px;font-weight:700;font-size:.95rem;max-width:calc(100% - 70px)}
 #legend{position:absolute;left:10px;bottom:28px;z-index:3;padding:8px 10px;font-size:.8rem;max-width:min(260px,calc(100% - 20px));max-height:calc(100% - 90px);overflow:auto}
 #legend summary{cursor:pointer;font-weight:700;font-size:.82rem;list-style:none}
@@ -91,7 +95,7 @@ function showMsg(t){ $('msg').textContent = t; $('msg').hidden = false; }
   const b = cfg.area.bounds, cats = Object.fromEntries((cfg.categories || []).map(c => [c.id, c.colour]));
   const tasks = Object.fromEntries((cfg.tasks || []).map(t => [t.id, t]));
 
-  const style = { version:8, sources:{}, layers:[{ id:'bg', type:'background', paint:{ 'background-color':'#eef1ee' } }] };
+  const style = { version:8, sources:{}, layers:[{ id:'bg', type:'background', paint:{ 'background-color':'#F5F7F3' } }] };
   if (S.base === 'aerial') {
     style.sources.aer = { type:'raster', tiles:[location.origin + '/linz/aerial/{z}/{x}/{y}.png?year=' + (S.year || 2024)], tileSize:256, minzoom:12, maxzoom:21,
                           attribution:'Aerial ' + (S.year || 2024) + ' © Toitū Te Whenua LINZ, CC BY 4.0' };
@@ -109,8 +113,8 @@ function showMsg(t){ $('msg').textContent = t; $('msg').hidden = false; }
     for (const id of parts) {
       try {
         map.addSource(id, { type:'geojson', data: await getJSON('/data/' + id + '.geojson'), attribution:'© OpenStreetMap contributors' });
-        if (id === 'osm_green') map.addLayer({ id, type:'fill', source:id, paint:{ 'fill-color':'#cfe6c8' } });
-        if (id === 'osm_buildings') map.addLayer({ id, type:'fill', source:id, paint:{ 'fill-color':'#d6dbd8' } });
+        if (id === 'osm_green') map.addLayer({ id, type:'fill', source:id, paint:{ 'fill-color':'#C9DDBF' } });
+        if (id === 'osm_buildings') map.addLayer({ id, type:'fill', source:id, paint:{ 'fill-color':'#D5DCCF' } });
         if (id === 'osm_roads') map.addLayer({ id, type:'line', source:id, paint:{ 'line-color':'#ffffff', 'line-width':3 } });
         if (id === 'osm_paths') map.addLayer({ id, type:'line', source:id, paint:{ 'line-color':'#c4cbc7', 'line-width':1, 'line-dasharray':[2,2] } });
       } catch (e) {}

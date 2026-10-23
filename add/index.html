@@ -13,15 +13,15 @@
 <style>
 /* Layout: phone-first single column — map with your position, then the record form, with Save fixed to the bottom. */
 :root{
-  --bg:#ffffff; --ink:#1b2722; --muted:#5a6862; --rule:#d3dcd7; --soft:#f2f6f4;
-  --accent:#2c7a4b; --accent-ink:#ffffff; --water:#28699a; --alert:#b8334a; --warn:#a8661a;
+  --bg:#F5F7F3; --card:#FCFDFB; --sage:#E1E8DC; --ink:#303A2E; --muted:#5f6b5a; --rule:#B8C5B0; --soft:#E1E8DC;
+  --accent:#56664D; --accent-ink:#FCFDFB; --water:#28699a; --alert:#b8334a; --warn:#a8661a;
   --font:"Aptos","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#111715; --ink:#e2eae6; --muted:#9caba4; --rule:#33403a; --soft:#1a2320;
-  --accent:#5fb882; --accent-ink:#0c1410; --water:#6aa8d6; --alert:#e66a7f; --warn:#d89a4c; color-scheme:dark}}
-:root[data-theme="dark"]{--bg:#111715; --ink:#e2eae6; --muted:#9caba4; --rule:#33403a; --soft:#1a2320;
-  --accent:#5fb882; --accent-ink:#0c1410; --water:#6aa8d6; --alert:#e66a7f; --warn:#d89a4c; color-scheme:dark}
+  --bg:#151a14; --card:#1c2219; --sage:#262e22; --ink:#e3e8df; --muted:#a2ad9c; --rule:#3a4535; --soft:#262e22;
+  --accent:#9db08f; --accent-ink:#0c1410; --water:#6aa8d6; --alert:#e66a7f; --warn:#d89a4c; color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#151a14; --card:#1c2219; --sage:#262e22; --ink:#e3e8df; --muted:#a2ad9c; --rule:#3a4535; --soft:#262e22;
+  --accent:#9db08f; --accent-ink:#0c1410; --water:#6aa8d6; --alert:#e66a7f; --warn:#d89a4c; color-scheme:dark}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html,body{margin:0}
@@ -90,6 +90,21 @@ details[open] summary{margin-bottom:10px}
 .sent li{display:flex;gap:8px;align-items:baseline;border-bottom:1px dotted var(--rule);padding-bottom:6px}
 .sent .tick{color:var(--accent);font-weight:700} .sent .wait{color:var(--warn);font-weight:700} .sent .fail{color:var(--alert);font-weight:700}
 .maplibregl-ctrl-attrib{font-size:10px}
+/* ---- theme: soft sage surfaces ---- */
+header{background:var(--card);border-bottom:1px solid var(--rule);box-shadow:inset 0 -3px 0 var(--accent)}
+main>fieldset,main>.fields,main>details{background:var(--card);border:1px solid var(--rule);border-radius:12px;padding:12px}
+main>.fields:empty{display:none}
+.tasks button,.opts button,.cats button,.btn,.stepper button,.stepper input,.seg button,input[type=text],input[type=password],textarea{background:var(--card);border-color:var(--rule)}
+main>fieldset .tasks button,main>.fields .opts button,main>fieldset .opts button{background:var(--bg)}
+.tasks button[aria-pressed="true"],.opts button[aria-pressed="true"]{background:var(--sage);border-color:var(--accent)}
+.seg button[aria-pressed="true"],.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+#map{background:var(--sage);border-color:var(--rule);border-radius:12px}
+legend,label.lab,.lab{color:var(--accent)}
+main>fieldset>legend{float:left;width:100%;margin-bottom:8px}
+main>fieldset>legend+*{clear:both}
+.chip{background:var(--card)}
+.savebar{background:var(--card);border-top-color:var(--rule)}
+.msg{background:var(--sage)}
 .pin{width:22px;height:22px;border-radius:50% 50% 50% 0;background:var(--alert);transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.5)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
