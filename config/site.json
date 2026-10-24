@@ -163,6 +163,15 @@
       { "id": "T06", "common": "T06 – Rat box, church grounds", "maori": "", "sci": "" }
     ]
   },
+  "admin": {
+    "_about": "Links in the 'For coordinators' bar on the desktop map. Anyone can see the bar; the Sheet and handbook only open for people they are shared with.",
+    "links": [
+      { "label": "Review records", "url": "/review/" },
+      { "label": "Add a record", "url": "/add/" },
+      { "label": "Records spreadsheet", "url": "https://docs.google.com/spreadsheets/d/1DFExwtYtcAEvVLTlKq-9ysr7jGYlrLOuZBcyOp3PjoY/edit" },
+      { "label": "Handbook", "url": "https://claude.ai/artifact/TDQT1smK8Ev1RermkurcGT" }
+    ]
+  },
   "embed_views": {
     "_about": "Named views for /embed/?view=name. Any setting can also be given directly in the embed address, which overrides the view.",
     "homepage": {

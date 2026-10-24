@@ -157,6 +157,12 @@ td.num{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
 section{display:flex;flex-direction:column;gap:12px}
 footer{font-size:.78rem;color:var(--muted);border-top:1px solid var(--rule);padding-top:10px}
 
+.adminbar{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;font-size:.88rem;border:1px solid var(--rule);border-radius:10px;padding:10px 14px;background:var(--card)}
+.adminbar .lbl{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;font-weight:700;color:var(--accent)}
+.adminbar .links{display:flex;flex-wrap:wrap;gap:6px}
+.adminbar a{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border:1px solid var(--rule);border-radius:6px;background:var(--card);color:var(--ink);text-decoration:none}
+.adminbar a:hover{background:var(--sage);border-color:var(--accent)}
+.adminbar a .n{font-variant-numeric:tabular-nums;font-size:.75rem;font-weight:700;color:var(--card);background:var(--hazard);border-radius:9px;padding:0 6px}
 .embedbox{border:1px solid var(--rule);padding:8px 12px;display:flex;flex-direction:column;gap:8px}
 .embedbox summary{cursor:pointer;font-weight:700;color:var(--accent)}
 .embedbox[open]{gap:8px}
@@ -345,6 +351,11 @@ input[type=checkbox],input[type=radio]{accent-color:var(--accent)}
     </div>
   </aside>
 </div>
+
+<nav class="adminbar no-print" id="adminbar" aria-label="Coordinator links" hidden>
+  <span class="lbl">For coordinators</span>
+  <span class="links" id="adminlinks"></span>
+</nav>
 
 <section>
   <h2>What the square told us</h2>
@@ -691,6 +702,7 @@ document.getElementById('a-discard').addEventListener('click',()=>{pending=null;
 
 function annData(){return {type:'FeatureCollection',features:ANN.features.map(f=>({...f,properties:{...f.properties,_needs:!!(f.properties.meta&&f.properties.meta.review&&f.properties.meta.review.status==='needs-id')}}))}}
 function refreshAnnSource(){map.getSource('ann')?.setData(annData());
+  if(typeof updateAdminCount==='function') updateAdminCount();
   const rl=document.getElementById('reviewlink'); if(rl&&!document.getElementById('sharedbar').hidden){ rl.hidden=false; const n=ANN.features.filter(f=>f.properties.meta&&f.properties.meta.review&&f.properties.meta.review.status==='needs-id').length; document.getElementById('reviewn').textContent=n?` · ${n} need${n===1?'s':''} an ID check`:' · nothing needs an ID check' } }
 function centroid(g){const c=g.type==='Point'?[g.coordinates]:(g.type==='LineString'?g.coordinates:g.coordinates[0]);return [c.reduce((a,b)=>a+b[0],0)/c.length,c.reduce((a,b)=>a+b[1],0)/c.length]}
 function renderAnnList(){
@@ -871,7 +883,12 @@ window.addEventListener('resize',()=>applyTime());
 let DSET=null, lastOpen=null;
 const SITE=(/pages\.dev$|^localhost$/.test(location.hostname))?location.origin:'https://nz-map-lab.pages.dev';
 const EMBED_LAYERS=['inat_obs','pncc_notable_trees','osm_trees','lidar_canopy','lidar_contours','hz_flood200','pncc_storm_mains','pncc_zones','pncc_parcels','pncc_heritage','pncc_playgrounds','pncc_cycle','hz_liquefaction'];
-(async()=>{ try{ const r=await fetch('/config/site.json'); if(r.ok){ DSET=await r.json(); renderEmbedViews() } }catch(e){} })();
+(async()=>{ try{ const r=await fetch('/config/site.json'); if(r.ok){ DSET=await r.json(); renderEmbedViews(); renderAdmin() } }catch(e){} })();
+// Coordinator links, from admin.links in the settings file (the review count is filled in when records load).
+function renderAdmin(){ const L=DSET&&DSET.admin&&DSET.admin.links; if(!Array.isArray(L)||!L.length) return;
+  document.getElementById('adminlinks').innerHTML=L.map(l=>`<a href="${esc(l.url)}"${/^https?:/.test(l.url)?' target="_blank" rel="noopener"':''}>${esc(l.label)}${l.url==='/review/'?'<span class="n" id="adminrev" hidden></span>':''}</a>`).join('');
+  document.getElementById('adminbar').hidden=false; updateAdminCount() }
+function updateAdminCount(){ const e=document.getElementById('adminrev'); if(!e) return; const n=ANN.features.filter(f=>f.properties.meta&&f.properties.meta.review&&f.properties.meta.review.status==='needs-id').length; e.textContent=n; e.hidden=!n; e.title=n+' need an ID check' }
 function renderEmbedViews(){ const v=DSET&&DSET.embed_views; if(!v) return; const names=Object.keys(v).filter(k=>!k.startsWith('_'));
   document.getElementById('emb-views').innerHTML='Ready-made views from the settings file: '+names.map(n=>`<a href="${SITE}/embed/?view=${encodeURIComponent(n)}" target="_blank" rel="noopener">${esc(v[n].title||n)}</a>`).join(' · '); }
 function renderAvail(){ const box=document.getElementById('emb-avail'); const prev=new Set([...box.querySelectorAll('input:checked')].map(i=>i.value));
