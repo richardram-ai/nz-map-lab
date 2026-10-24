@@ -1,6 +1,6 @@
 // Keeps the phone form working with poor or no signal.
 // The page and its libraries are cached; recently viewed map tiles are cached; saving uses the page's own queue.
-const SHELL = 'nzml-shell-v7', TILES = 'nzml-tiles-v1', MAX_TILES = 400;
+const SHELL = 'nzml-shell-v8', TILES = 'nzml-tiles-v1', MAX_TILES = 400;
 const SHELL_URLS = ['/add/', '/add/identify.js', '/config/site.json', '/add/manifest.webmanifest', '/add/icon-192.png',
   'https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.js',
   'https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.css',

@@ -110,6 +110,23 @@ main>fieldset .tasks button,main>.fields .opts button,main>fieldset .opts button
 .seg button[aria-pressed="true"],.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 #map{background:var(--sage);border-color:var(--rule);border-radius:12px}
 legend,label.lab,.lab{color:var(--accent)}
+.stephead{display:flex;align-items:center;gap:8px;font-size:.82rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--accent);margin:0 0 4px}
+legend.stephead{padding:0}
+.step{flex:none;display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-size:.8rem;font-weight:700;letter-spacing:0}
+.opt{text-transform:none;letter-spacing:0;font-weight:400;color:var(--muted);font-size:.8rem}
+.need{text-transform:none;letter-spacing:0;font-weight:700;color:var(--warn);font-size:.8rem}
+.stephint{margin:0 0 6px;font-size:.84rem;color:var(--muted)}
+.where{display:flex;flex-direction:column;gap:8px}
+.firstrun{display:flex;flex-direction:column;gap:6px}
+.firstrun .row{display:flex;flex-wrap:wrap;gap:8px}
+.help{background:var(--card);border:1px solid var(--rule);border-radius:12px;padding:14px;font-size:.92rem}
+.help h2{margin:0 0 8px;font-size:1.05rem}
+.help ol{margin:0 0 10px;padding-left:1.3em;display:flex;flex-direction:column;gap:6px}
+.help ul{margin:0 0 10px;padding-left:1.2em;display:flex;flex-direction:column;gap:4px}
+.help h3{margin:10px 0 4px;font-size:.8rem;text-transform:uppercase;letter-spacing:.07em;color:var(--accent)}
+.savehint{font-size:.84rem;color:var(--muted);margin:0}
+header .hlinks{margin-left:auto;display:flex;gap:14px}
+header .hlinks a{margin-left:0}
 main>fieldset>legend{float:left;width:100%;margin-bottom:8px}
 main>fieldset>legend+*{clear:both}
 .chip{background:var(--card)}
@@ -120,18 +137,29 @@ main>fieldset>legend+*{clear:both}
 </style>
 </head>
 <body>
-<header><b>NZ Map Lab</b><span>Add a record</span><a href="/">Open the map</a></header>
+<header><b>NZ Map Lab</b><span>Add a record</span><span class="hlinks"><a href="#help">Help</a><a href="/">Map</a></span></header>
 <main>
+  <div class="msg firstrun" id="firstrun" hidden>
+    <b>New to this form?</b>
+    <span>It takes about a minute: say where, what, add the details and a photo, then save. You'll need your name and the group's editing code once.</span>
+    <div class="row"><a class="btn" href="#help">How to use it</a><button class="btn" type="button" id="gosettings">Add name and code</button></div>
+  </div>
+
+  <div class="where">
+  <h2 class="stephead"><span class="step">1</span>Where is it?</h2>
+  <p class="stephint">Your phone places the red pin at your location. Drag it, or tap the map, to put it exactly where the thing is.</p>
   <div id="map" role="region" aria-label="Map showing where this record will be placed"></div>
   <div class="loc" aria-live="polite">
     <span class="chip" id="locchip"><i></i><span id="loctext">Finding your location…</span></span>
     <button class="btn" type="button" id="relocate">Use my location</button>
   </div>
-  <p class="hint" id="lochint">Drag the red pin, or tap the map, if it isn't quite where the thing is.</p>
+  <p class="hint" id="lochint">The ± figure is how accurate your phone's GPS is. Under 10 m is good; wait a few seconds outdoors if it's higher.</p>
   <div class="msg warn" id="outside" hidden>You're outside the mapped area. Records can only be saved inside the dashed square.</div>
+  </div>
 
   <fieldset>
-    <legend>What are you recording?</legend>
+    <legend class="stephead"><span class="step">2</span>What are you recording?</legend>
+    <p class="stephint">Pick the job you're doing. The next step changes to match it.</p>
     <div class="tasks" id="tasks"></div>
   </fieldset>
 
@@ -142,14 +170,9 @@ main>fieldset>legend+*{clear:both}
     <div class="cats" id="cats"></div>
   </fieldset>
 
-  <fieldset>
-    <label class="lab" for="note">Note <span style="text-transform:none;letter-spacing:0;font-weight:400">(optional)</span></label>
-    <textarea id="note" maxlength="400" placeholder="Anything worth knowing"></textarea>
-    <p class="hint" id="titleprev" aria-live="polite"></p>
-  </fieldset>
-
-  <fieldset>
-    <legend>Photos <span style="text-transform:none;letter-spacing:0;font-weight:400">(up to 3)</span></legend>
+  <fieldset id="photobox">
+    <legend class="stephead"><span class="step">4</span>Photos <span class="opt" id="phreq">optional, up to 3</span></legend>
+    <p class="stephint" id="phstep">A photo helps others check what you saw. If you're not sure what it is, a photo is needed.</p>
     <div class="row">
       <label class="btn" for="cam">Take photo</label><input type="file" id="cam" accept="image/*" capture="environment" hidden>
       <label class="btn" for="gal">Choose from phone</label><input type="file" id="gal" accept="image/*" multiple hidden>
@@ -159,14 +182,25 @@ main>fieldset>legend+*{clear:both}
     <p class="hint" id="phhint">Photos are shrunk on your phone before sending. Their time and location are kept; other hidden details are removed.</p>
   </fieldset>
 
+  <fieldset>
+    <label class="stephead" for="note"><span class="step">5</span>Note <span class="opt">optional</span></label>
+    <textarea id="note" maxlength="400" placeholder="Anything worth knowing: condition, behaviour, what you did"></textarea>
+  </fieldset>
+
+  <fieldset>
+    <h2 class="stephead"><span class="step">6</span>Check and save</h2>
+    <p class="hint" id="titleprev" aria-live="polite"></p>
+    <p class="savehint">Tap <b>Save record</b> at the bottom. It sends straight away, or waits safely on this phone until you have signal. The form then clears, ready for the next one.</p>
+  </fieldset>
+
   <details id="settings">
-    <summary id="setsum">Your name and editing code</summary>
+    <summary id="setsum">Your name and editing code (needed once)</summary>
     <fieldset>
       <label class="lab" for="by">Your name</label>
       <input type="text" id="by" maxlength="60" autocomplete="name">
       <label class="lab" for="code">Editing code</label>
       <input type="password" id="code" autocomplete="off">
-      <p class="hint">Saved on this phone so you only enter them once.</p>
+      <p class="hint">Saved on this phone so you only enter them once. Ask your coordinator for the editing code. Your name is shown with your records on the map.</p>
     </fieldset>
   </details>
 
@@ -176,6 +210,31 @@ main>fieldset>legend+*{clear:both}
     <div class="row" style="justify-content:space-between"><span class="lab" style="font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)">From this phone</span>
       <button class="btn" type="button" id="sendnow" hidden>Send now</button></div>
     <ul class="sent" id="sent"></ul>
+  </section>
+  <section class="help" id="help" aria-labelledby="helptitle">
+    <h2 id="helptitle">How to use this form</h2>
+    <ol>
+      <li><b>Where is it?</b> Stand near the thing and let the pin settle. Drag the pin, or tap the map, if it isn't quite right. The dashed square is the area your group maps.</li>
+      <li><b>What are you recording?</b> Pick the job: a sighting, a planting, a trap check and so on.</li>
+      <li><b>Details.</b> Tap the options that fit. Long lists have a search box, and the names you use most move to the top. Anything not marked optional is needed.</li>
+      <li><b>Photos</b> are optional unless you're not sure what something is. For plants, a close-up of a leaf or flower works best.</li>
+      <li><b>Note</b> for anything else worth knowing.</li>
+      <li><b>Save record.</b> Check the title shown above the button, then save.</li>
+    </ol>
+    <h3>Not sure what it is?</h3>
+    <ul>
+      <li>Tap <b>Suggest from a photo</b> under the species list. It shows the most likely species with a percentage; pick one if it matches, or “None of these”.</li>
+      <li>The first time, it downloads about 100 MB once (best on wifi), then works without signal.</li>
+      <li>Or choose <b>Other / not sure</b> and add a photo. The record is marked “needs ID” and someone checks it later. That's fine: an honest “not sure” is more useful than a guess.</li>
+    </ul>
+    <h3>Good to know</h3>
+    <ul>
+      <li>No signal? Save anyway. Records wait on this phone and send themselves when you're back in range. They're listed under “From this phone”.</li>
+      <li>Add the form to your home screen (Share, then Add to Home Screen) so it opens like an app, even offline.</li>
+      <li>Your name, the time and the place are shown with your records on the group's map.</li>
+      <li>Made a mistake? Tell your coordinator, who can correct or remove a record.</li>
+    </ul>
+    <p style="margin:0"><a href="#">Back to the top</a></p>
   </section>
   <footer class="hint" style="font-size:.74rem;padding:4px 2px 8px">Map and aerial photos © <a href="https://www.linz.govt.nz" target="_blank" rel="noopener">Toitū Te Whenua LINZ</a> (CC BY 4.0). Species suggestions: <a href="https://github.com/Waikato/aotearoa-species-classifier" target="_blank" rel="noopener">Aotearoa Species Classifier</a> by the TAIAO project, University of Waikato and University of Canterbury (CC BY-NC 4.0), run on this phone with ONNX Runtime (MIT).</footer>
 </main>
@@ -299,7 +358,7 @@ $('tasks').addEventListener('click',e=>{const b=e.target.closest('button'); if(b
 function renderFields(){
   if(!task){ $('fields').innerHTML=''; return }
   const conf=(SETTINGS.identification&&SETTINGS.identification.confidence)||[];
-  $('fields').innerHTML=task.fields.map(fd=>{
+  $('fields').innerHTML=`<div><h2 class="stephead"><span class="step">3</span>${esc(task.label)} details</h2><p class="stephint" style="margin:0">Tap the options that fit. Anything not marked optional is needed.</p></div>`+task.fields.map(fd=>{
     const v=values[fd.id]; const lab=`<span class="lab">${esc(fd.label)}${fd.required?'':' <span style="text-transform:none;letter-spacing:0;font-weight:400">(optional)</span>'}</span>`;
     if(fd.type==='list'){
       const items=listItems(fd.list), sel=v&&v.id, q=(v&&v.q)||'';
@@ -329,7 +388,13 @@ function renderFields(){
     if(fd.type==='number') return `<fieldset>${lab}<div class="stepper"><button type="button" data-step="${fd.id}" data-d="-1" aria-label="Fewer">−</button><input type="number" inputmode="numeric" data-num="${fd.id}" min="${fd.min??''}" max="${fd.max??''}" value="${v??''}" aria-label="${esc(fd.label)}"><button type="button" data-step="${fd.id}" data-d="1" aria-label="More">+</button></div></fieldset>`;
     return `<fieldset>${lab}<input type="text" data-text="${fd.id}" maxlength="${fd.max||200}" value="${esc(v||'')}" autocomplete="off"></fieldset>`;
   }).join('');
-  updateTitlePreview();
+  updateTitlePreview(); updatePhotoReq();
+}
+function updatePhotoReq(){
+  const r=$('phreq'), h=$('phstep'); if(!r) return;
+  const need=task&&recordNeedsId()&&SETTINGS&&SETTINGS.identification&&SETTINGS.identification.photo_required_when_unsure;
+  if(need&&!photos.length){ r.className='need'; r.textContent='needed: you\'re not sure what it is'; h.textContent='Add a photo so someone can check the identification later.' }
+  else { r.className='opt'; r.textContent=photos.length?`${photos.length} of 3 added`:'optional, up to 3'; h.textContent='A photo helps others check what you saw. If you\'re not sure what it is, a photo is needed.' }
 }
 // ---- Species suggestions from a photo (Aotearoa Species Classifier, runs on the phone)
 let SUG={}, pendingSug=null;
@@ -429,7 +494,8 @@ async function loadSettings(){
 // ---- Name and code
 $('by').value=store.get('map-by'); $('code').value=store.get('map-edit-code');
 ['by','code'].forEach(id=>$(id).addEventListener('change',()=>{store.set(id==='by'?'map-by':'map-edit-code',$(id).value.trim()); setSummary()}));
-function setSummary(){ const b=$('by').value.trim(), c=$('code').value.trim();
+$('gosettings').addEventListener('click',()=>{ $('settings').open=true; $('settings').scrollIntoView({behavior:'smooth',block:'center'}); setTimeout(()=>$('by').focus(),400) });
+function setSummary(){ const b=$('by').value.trim(), c=$('code').value.trim(); $('firstrun').hidden=!!(b&&c);
   $('setsum').textContent = b&&c ? `Saving as ${b}` : 'Your name and editing code (needed to save)';
   if(!b||!c) $('settings').open=true; }
 setSummary();
@@ -462,6 +528,7 @@ function renderPhotos(){
     <span class="meta">${p.taken?new Date(p.taken).toLocaleString('en-NZ',{day:'numeric',month:'short',hour:'numeric',minute:'2-digit'}):'No time in photo'}${p.lat!=null?' · has location':''}</span></div>`).join('');
   const withLoc=photos.find(p=>p.lat!=null&&inArea(p.lon,p.lat));
   $('usephotoloc').hidden=!withLoc;
+  if(typeof updatePhotoReq==='function') updatePhotoReq();
 }
 $('photos').addEventListener('click',e=>{const x=e.target.dataset.x; if(x!==undefined){URL.revokeObjectURL(photos[+x].url); photos.splice(+x,1); renderPhotos()}});
 $('photos').addEventListener('input',e=>{const c=e.target.dataset.cap; if(c!==undefined) photos[+c].caption=e.target.value});
