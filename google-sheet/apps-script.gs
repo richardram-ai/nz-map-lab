@@ -5,6 +5,7 @@
  * and only the Cloudflare function knows TOKEN.
  * Deleting an annotation marks the row "yes" in the deleted column rather than removing it, so nothing is lost.
  * The review screen updates a record's title and details columns in place (action 'update').
+ * Deleted records are moved to the Deleted tab so the Annotations tab only holds live records.
  * Photos: the Cloudflare function sends a copy of each photo here; it is saved to the "NZ Map Lab photos"
  * Drive folder and listed on the Photos tab. The map itself shows photos from Cloudflare R2.
  */
@@ -41,6 +42,34 @@ function photoSheet_() {
   }
   return sh;
 }
+
+/** Deleted records are moved to the "Deleted" tab (with the time they were moved), so the main tab holds
+ *  only live records. Nothing is lost: to restore one, move its row back to the Annotations tab and clear "deleted". */
+const DELETED_SHEET = 'Deleted';
+function deletedSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName(DELETED_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(DELETED_SHEET);
+    sh.appendRow(HEADERS.concat(['moved_to_deleted']));
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, 1, HEADERS.length + 1).setFontWeight('bold');
+  }
+  return sh;
+}
+function moveDeleted_(sh) {
+  const last = sh.getLastRow(); if (last < 2) return 0;
+  const rows = sh.getRange(2, 1, last - 1, HEADERS.length).getValues();
+  const del = deletedSheet_(), now = new Date(); let moved = 0;
+  for (let r = rows.length - 1; r >= 0; r--) {
+    if (String(rows[r][8]).toLowerCase() !== 'yes') continue;
+    del.appendRow(rows[r].concat([now]));
+    sh.deleteRow(r + 2); moved++;
+  }
+  return moved;
+}
+/** Run once from the editor to move rows already marked deleted. */
+function tidyDeleted() { const n = moveDeleted_(sheet_()); Logger.log(n + ' deleted rows moved to the Deleted tab'); }
 
 /** The Drive folder that holds copies of every photo. Created on first use, next to nothing else in My Drive. */
 function photoFolder_() {
@@ -106,6 +135,7 @@ function doPost(e) {
       const i = ids.indexOf(String(body.id));
       if (i < 0) return out_({ error: 'Annotation not found' });
       sh.getRange(i + 2, 9).setValue('yes');
+      moveDeleted_(sh);
     } else if (body.action === 'update') {
       // Used by the review screen: replaces a record's title and details (task fields, review status).
       const ids = sh.getRange(2, 1, Math.max(sh.getLastRow() - 1, 1), 1).getValues().map(r => String(r[0]));
