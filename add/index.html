@@ -70,6 +70,16 @@ textarea{min-height:76px;resize:vertical}
 .stepper button{width:48px;height:48px;font-size:1.4rem;border-radius:8px;border:1.5px solid var(--rule);background:var(--bg);color:var(--ink)}
 .stepper input{width:96px;text-align:center;font:inherit;font-size:1.1rem;padding:10px;border:1.5px solid var(--rule);border-radius:8px;background:var(--bg);color:var(--ink)}
 .needsid{font-size:.82rem;color:var(--warn)}
+.idbox{display:flex;flex-direction:column;gap:6px;margin-top:6px;padding:10px;border:1px dashed var(--rule);border-radius:10px;background:var(--bg)}
+.idbox .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.idbox .sug{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;align-items:center;font:inherit;text-align:left;padding:9px 11px;border-radius:8px;border:1.5px solid var(--rule);background:var(--card);color:var(--ink);min-height:44px}
+.idbox .sug b{font-size:.95rem} .idbox .sug small{grid-column:1;color:var(--muted);font-size:.74rem;font-style:italic}
+.idbox .sug .pc{grid-row:1/3;grid-column:2;font-variant-numeric:tabular-nums;font-weight:700;color:var(--accent)}
+.idbox .sug .onlist{font-style:normal;color:var(--accent);font-weight:600}
+.idbox .sug[aria-pressed="true"]{border-color:var(--accent);background:var(--sage);box-shadow:inset 0 0 0 1.5px var(--accent)}
+.idbox .mpi{color:var(--alert);font-weight:700;font-style:normal}
+.idbox .credit{font-size:.72rem;color:var(--muted)} .idbox .credit a{color:var(--muted)}
+.idbox progress{width:100%;accent-color:var(--accent)}
 .photos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .ph{position:relative;display:flex;flex-direction:column;gap:4px;min-width:0}
 .ph img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:6px;border:1px solid var(--rule);display:block}
@@ -172,6 +182,7 @@ main>fieldset>legend+*{clear:both}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/full.umd.js"></script>
+<script src="/add/identify.js"></script>
 <script>
 // ---- Organisation settings: defaults here, replaced by /config/site.json when it loads (cached for offline use).
 let SETTINGS = null;
@@ -277,7 +288,7 @@ function renderTasks(){
 }
 function setTask(id){
   const ts=(SETTINGS&&SETTINGS.tasks)||[]; task=ts.find(t=>t.id===id)||ts[0]||null; if(!task) return;
-  store.set('nzml-last-task',task.id); values={};
+  store.set('nzml-last-task',task.id); values={}; if(typeof SUG!=='undefined') SUG={};
   task.fields.forEach(fd=>{ if(fd.default!==undefined) values[fd.id]=fd.default });
   $('catbox').hidden=!!task.category;
   renderTasks(); renderFields();
@@ -309,6 +320,7 @@ function renderFields(){
         ${sel==='other'?`<input type="text" data-other="${fd.id}" maxlength="80" value="${esc(v.other||'')}" placeholder="What do you think it is? (optional)">`:''}
         ${fd.confidence!==false&&sel&&sel!=='other'?`<span class="lab" style="margin-top:4px">How sure are you?</span><div class="seg" role="group">${conf.map(c=>`<button type="button" data-conf="${fd.id}" data-v="${c.id}" aria-pressed="${(v.confidence||'sure')===c.id}">${esc(c.label)}</button>`).join('')}</div>`:''}
         ${needsIdFor(fd)?'<span class="needsid">This will be marked “needs ID” so someone can check it. Add a photo.</span>':''}
+        ${fd.confidence!==false&&idOn()?idBox(fd):''}
       </fieldset>`;
     }
     if(fd.type==='choice') return `<fieldset>${lab}<div class="opts">${fd.options.map(o=>`<button type="button" data-f="${fd.id}" data-v="${esc(o)}" aria-pressed="${v===o}">${esc(o)}</button>`).join('')}</div></fieldset>`;
@@ -318,10 +330,60 @@ function renderFields(){
   }).join('');
   updateTitlePreview();
 }
+// ---- Species suggestions from a photo (Aotearoa Species Classifier, runs on the phone)
+let SUG={}, pendingSug=null;
+function idOn(){ return window.NZID && !(SETTINGS.identification&&SETTINGS.identification.classifier===false) }
+const sciKey=s=>String(s||'').toLowerCase().split(/\s+/).slice(0,2).join(' ');
+function idBox(fd){
+  const st=SUG[fd.id]||{status:'idle'}, list=listItems(fd.list);
+  const credit=`<span class="credit">Suggestions from the <a href="${NZID.link}" target="_blank" rel="noopener">Aotearoa Species Classifier</a> (TAIAO, University of Waikato), CC BY-NC 4.0. Check against what's in front of you.</span>`;
+  if(st.status==='idle') return `<div class="idbox"><div class="row"><button type="button" class="btn" data-sug="${fd.id}">Suggest from a photo</button><span class="hint">${photos.length?'Uses photo 1.':'Takes a photo first.'}</span></div></div>`;
+  if(st.status==='ask') return `<div class="idbox"><span>The identification helper is a one-off download of about ${st.mb} MB, then it works without signal. Best done on wifi.</span><div class="row"><button type="button" class="btn primary" data-sug-go="${fd.id}">Download and identify</button><button type="button" class="btn" data-sug-cancel="${fd.id}">Not now</button></div>${credit}</div>`;
+  if(st.status==='loading'||st.status==='running') return `<div class="idbox"><span id="sugmsg-${fd.id}">${esc(st.msg||'Looking at the photo…')}</span>${st.status==='loading'?`<progress id="sugbar-${fd.id}" max="1" value="${st.frac||0}"></progress>`:''}</div>`;
+  if(st.status==='error') return `<div class="idbox"><span class="needsid">${esc(st.msg)}</span><div class="row"><button type="button" class="btn" data-sug="${fd.id}">Try again</button></div></div>`;
+  const rows=st.top.map((t,i)=>{ if(i>0&&t.p<.01) return ''; const it=list.find(x=>sciKey(x.sci)===sciKey(t.sci));
+    const name=it?itemLabel(it):(t.common||t.sci);
+    return `<button type="button" class="sug" data-pick="${fd.id}" data-i="${i}" aria-pressed="${st.chosen===i}"><b>${esc(name)}</b><span class="pc">${t.p<.01?'&lt;1':Math.round(t.p*100)}%</span><small>${esc(t.sci)}${it?' · <span class="onlist">on your list</span>':''}${t.mpi?' · <span class="mpi">MPI '+(t.mpi.includes('n')?'notifiable':'unwanted')+'</span>':''}</small></button>` }).join('');
+  const top=st.top[0], warn=st.top.find(t=>t.mpi&&t.p>=.2);
+  return `<div class="idbox"><span class="lab" style="margin:0">Is it one of these?</span>${rows}
+    <button type="button" class="sug" data-pick="${fd.id}" data-i="none" aria-pressed="${st.chosen==='none'}"><b>None of these</b></button>
+    ${top.p<.9?'<span class="hint">The helper isn’t sure. If you pick one, the record will still be checked.</span>':''}
+    ${warn?`<span class="needsid">${esc(warn.common||warn.sci)} is listed by MPI as ${warn.mpi.includes('n')?'notifiable':'an unwanted organism'}. If that’s what it is, <a href="https://www.mpi.govt.nz/biosecurity/how-to-find-report-and-prevent-pests-and-diseases/report-a-pest-or-disease/" target="_blank" rel="noopener">report it to MPI</a>.</span>`:''}
+    ${credit}</div>`;
+}
+async function runSuggest(fid){
+  const fd=task&&task.fields.find(f=>f.id===fid); if(!fd) return;
+  if(!photos.length){ pendingSug=fid; $('cam').click(); return }
+  if(!(await NZID.downloaded())&&SUG[fid]?.status!=='go'){ SUG[fid]={status:'ask',mb:Math.round((await NZID.size().catch(()=>101e6))/1e6)}; renderFields(); return }
+  SUG[fid]={status:'loading',msg:'Getting the identification helper ready…',frac:0}; renderFields();
+  try{
+    await NZID.load((f,t)=>{ SUG[fid].frac=f; SUG[fid].msg=t; const m=document.getElementById('sugmsg-'+fid), b=document.getElementById('sugbar-'+fid); if(m) m.textContent=t; if(b) b.value=f });
+    SUG[fid]={status:'running',msg:'Looking at the photo…'}; renderFields();
+    const r=await NZID.identify(photos[0].blob);
+    SUG[fid]={status:'done',top:r.top,ms:r.ms,backend:r.backend,chosen:null}; renderFields();
+  }catch(e){ SUG[fid]={status:'error',msg:navigator.onLine?'The helper couldn’t run on this phone: '+(e.message||e):'Connect to the internet once to download the identification helper.'}; renderFields() }
+}
+function pickSuggestion(fid,i){
+  const fd=task.fields.find(f=>f.id===fid), st=SUG[fid]; if(!fd||!st||!st.top) return;
+  if(i==='none'){ st.chosen='none'; values[fid]={id:'other',confidence:'unsure',other:(values[fid]&&values[fid].other)||'',q:''}; renderFields(); return }
+  const t=st.top[+i]; st.chosen=+i;
+  const it=listItems(fd.list).find(x=>sciKey(x.sci)===sciKey(t.sci));
+  values[fid]=it?{id:it.id,confidence:t.p>=.9?'sure':'think',other:'',q:''}:{id:'other',other:t.common||t.sci,sci:t.sci,confidence:'think',q:''};
+  renderFields();
+}
+function aiMeta(){
+  for(const [fid,st] of Object.entries(SUG)) if(st.status==='done') return {model:NZID.model,field:fid,backend:st.backend,ms:st.ms,
+    top:st.top.map(t=>({sci:t.sci,common:t.common,p:Math.round(t.p*1000)/1000})),chosen:st.chosen==null?null:(st.chosen==='none'?'none':st.top[st.chosen].sci)};
+  return null;
+}
 function needsIdFor(fd){ const v=values[fd.id]; return fd.type==='list'&&fd.confidence!==false&&v&&(v.id==='other'||v.confidence==='unsure') }
 function recordNeedsId(){ return task&&task.fields.some(needsIdFor) }
 $('fields').addEventListener('click',e=>{
-  const b=e.target.closest('button'); if(!b) return; const fd=task.fields.find(f=>f.id===(b.dataset.f||b.dataset.conf||b.dataset.step)); if(!fd) return;
+  const b=e.target.closest('button'); if(!b) return;
+  if(b.dataset.sug){ runSuggest(b.dataset.sug); return }
+  if(b.dataset.sugGo){ SUG[b.dataset.sugGo]={status:'go'}; runSuggest(b.dataset.sugGo); return }
+  if(b.dataset.sugCancel){ delete SUG[b.dataset.sugCancel]; renderFields(); return }
+  if(b.dataset.pick){ pickSuggestion(b.dataset.pick,b.dataset.i); return } const fd=task.fields.find(f=>f.id===(b.dataset.f||b.dataset.conf||b.dataset.step)); if(!fd) return;
   if(b.dataset.step){ const cur=Number(values[fd.id]??fd.min??0); values[fd.id]=Math.min(fd.max??1e9,Math.max(fd.min??0,cur+Number(b.dataset.d))) }
   else if(b.dataset.conf){ values[fd.id]={...values[fd.id],confidence:b.dataset.v} }
   else if(fd.type==='list'){ const prev=values[fd.id]||{}; values[fd.id]={id:b.dataset.v,confidence:b.dataset.v==='other'?'unsure':'sure',other:prev.other||'',q:prev.q||''} }
@@ -390,6 +452,7 @@ async function addFiles(files){
     }catch(e){ flash('That photo couldn’t be read. If it’s a HEIC file, try taking it again with this form, or choose a JPEG.','err') }
   }
   renderPhotos();
+  if(pendingSug&&photos.length){ const f=pendingSug; pendingSug=null; runSuggest(f) } else if(task) renderFields();
 }
 function renderPhotos(){
   $('photos').innerHTML=photos.map((p,i)=>`<div class="ph"><img src="${p.url}" alt="Photo ${i+1}"><button type="button" class="x" data-x="${i}" aria-label="Remove photo ${i+1}">×</button>
@@ -469,20 +532,20 @@ $('save').addEventListener('click',async()=>{
   if(missing){ flash(`Choose or fill in “${missing.label}”.`,'err'); return }
   if(recordNeedsId()&&SETTINGS.identification&&SETTINGS.identification.photo_required_when_unsure&&!photos.length){ flash('Add a photo so someone can check the identification.','err'); return }
   if(!title){ flash('Give it a short title.','err'); return }
-  const fieldsOut={}; task.fields.forEach(fd=>{ const v=values[fd.id]; if(v===undefined||v==='') return; fieldsOut[fd.id]=fd.type==='list'?{id:v.id,other:v.other||'',confidence:fd.confidence===false?null:(v.confidence||'sure')}:v });
+  const fieldsOut={}; task.fields.forEach(fd=>{ const v=values[fd.id]; if(v===undefined||v==='') return; fieldsOut[fd.id]=fd.type==='list'?{id:v.id,other:v.other||'',sci:v.sci||'',confidence:fd.confidence===false?null:(v.confidence||'sure')}:v });
   store.set('map-by',by); store.set('map-edit-code',code);
   const feature={type:'Feature',geometry:{type:'Point',coordinates:[+pos.lon.toFixed(6),+pos.lat.toFixed(6)]},
     properties:{title,cat:task.category||cat,note:$('note').value.trim(),by,task:task.id,fields:fieldsOut,
       meta:{accuracy_m:pos.source==='gps'?Math.round(pos.accuracy*10)/10:null,position:pos.source,captured:new Date().toISOString(),
         altitude_m:pos.source==='gps'&&fix&&fix.altitude!=null?Math.round(fix.altitude):null,
         heading:pos.source==='gps'&&fix&&fix.heading!=null&&!isNaN(fix.heading)?Math.round(fix.heading):null,
-        device:deviceLabel(),via:'phone'}}};
+        device:deviceLabel(),via:'phone',ai:aiMeta()}}};
   const item={qid:new Date().toISOString()+'-'+Math.random().toString(36).slice(2,6),state:'waiting',feature,
     photos:photos.map(p=>({blob:p.blob,caption:p.caption,taken:p.taken,lat:p.lat,lon:p.lon}))};
   try{ await DB.put(item) }catch(e){ flash('This phone couldn’t store the record. Check you’re not in a private browsing tab.','err'); return }
   // reset the form for the next record
   task.fields.forEach(fd=>{ if(fd.type==='list'&&values[fd.id]) pushRecent(fd.list,values[fd.id].id) });
-  setTask(task.id); $('note').value=''; photos.forEach(p=>URL.revokeObjectURL(p.url)); photos=[]; renderPhotos();
+  SUG={}; setTask(task.id); $('note').value=''; photos.forEach(p=>URL.revokeObjectURL(p.url)); photos=[]; renderPhotos();
   follow=true; if(fix) setPos({lon:fix.lon,lat:fix.lat,source:'gps',accuracy:fix.accuracy});
   flash(navigator.onLine?'Saved. Sending now…':'Saved on this phone. It will send when you have signal.');
   window.scrollTo({top:0,behavior:'smooth'});

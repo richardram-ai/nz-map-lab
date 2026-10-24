@@ -54,7 +54,7 @@ function cleanTask(p, cfg, hasPhotos) {
       if (!item && !other) throw new Error(`“${fd.label}”: choose from the list.`);
       const conf = (cfg.identification && cfg.identification.confidence || []).map(c => c.id).includes(v.confidence) ? v.confidence : null;
       fields[fd.id] = other
-        ? { id: 'other', label: String(v.other || 'Not sure').trim().slice(0, 80) || 'Not sure', confidence: conf || 'unsure' }
+        ? { id: 'other', label: String(v.other || 'Not sure').trim().slice(0, 80) || 'Not sure', sci: String(v.sci || '').trim().slice(0, 80), confidence: conf || 'unsure' }
         : { id: item.id, label: item.common, sci: item.sci || '', confidence: fd.confidence === false ? null : conf };
       if (fd.confidence !== false && (other || conf === 'unsure')) needsId = true;
     } else if (fd.type === 'choice') {
@@ -105,6 +105,14 @@ function cleanFeature(f, cfg) {
     device: str(m.device, 60),
     via: ['phone', 'desktop', 'import'].includes(m.via) ? m.via : null,
   };
+  // Suggestions from the on-phone species classifier, kept so a reviewer can see what it proposed.
+  if (m.ai && typeof m.ai === 'object' && Array.isArray(m.ai.top)) {
+    meta.ai = {
+      model: str(m.ai.model, 60), field: str(m.ai.field, 40), backend: str(m.ai.backend, 10), ms: num(m.ai.ms, 0, 600000),
+      top: m.ai.top.slice(0, 5).map(t => ({ sci: str(t && t.sci, 80), common: str(t && t.common, 80), p: num(t && t.p, 0, 1) })),
+      chosen: m.ai.chosen == null ? null : str(m.ai.chosen, 80),
+    };
+  }
   if (taskInfo) {
     meta.task = taskInfo.task.id;
     meta.fields = taskInfo.fields;

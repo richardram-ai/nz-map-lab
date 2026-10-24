@@ -1,0 +1,26 @@
+{
+ "name": "Aotearoa Species Classifier, small model",
+ "version": "asc-small-onnx-384-v1.0 (weights stored at half precision, computed at full precision)",
+ "source": "https://github.com/Waikato/aotearoa-species-classifier/releases/tag/model-small-onnx-fp32-384-v1.0",
+ "credit": "TAIAO project, University of Waikato and University of Canterbury",
+ "licence": "CC BY-NC 4.0",
+ "licence_url": "https://creativecommons.org/licenses/by-nc/4.0/",
+ "bytes": 78891544,
+ "sha256": "c6e4327a20e82271362e5d7c072f4b0d67a1b192fb6d7fd7a00930a692abf39a",
+ "parts": [
+  "model.part0",
+  "model.part1",
+  "model.part2",
+  "model.part3"
+ ],
+ "labels": "labels.json",
+ "input": {
+  "name": "image",
+  "size": 384,
+  "resize": 416,
+  "mean": 0.5,
+  "std": 0.5
+ },
+ "output": "scores",
+ "temperature": 1.3034
+}

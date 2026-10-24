@@ -35,7 +35,9 @@
       { "id": "think", "label": "Think so" },
       { "id": "unsure", "label": "Not sure" }
     ],
-    "photo_required_when_unsure": true
+    "photo_required_when_unsure": true,
+    "classifier": true,
+    "_classifier": "Offers species suggestions from a photo on list fields that ask how sure the person is. Uses the Aotearoa Species Classifier (TAIAO, University of Waikato, CC BY-NC 4.0) stored in /models/. Set to false to turn it off."
   },
   "tasks": [
     {

@@ -1,0 +1,2 @@
+ONNX Runtime Web 1.20.1 (onnxruntime-web on npm), MIT licence, (c) Microsoft Corporation.
+https://github.com/microsoft/onnxruntime/blob/main/LICENSE

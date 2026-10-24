@@ -612,6 +612,7 @@ function annPopup(p){
   if(m.fields&&typeof m.fields==='object'){ const defs=task?task.fields:Object.keys(m.fields).map(k=>({id:k,label:k}));
     const rows=defs.filter(fd=>m.fields[fd.id]!==undefined&&fd.id!=='title').map(fd=>{let v=m.fields[fd.id]; if(v&&typeof v==='object') v=v.label+(v.sci?` (${v.sci})`:'')+(v.confidence==='think'?', probably':v.confidence==='unsure'&&v.label!=='Not sure'?', not sure':''); if(v===true)v='Yes'; if(v===false)v='No'; return `<span class="mm" style="margin:0;color:#1b2722">${esc(fd.label)}: ${esc(v)}</span>`}).join('');
     h+=rows; }
+  if(m.ai&&Array.isArray(m.ai.top)&&m.ai.top.length){ const t=m.ai.top[0]; h+=`<span class="mm" style="margin:0">Photo helper's top guess: ${esc(t.common||t.sci)} (${Math.round((t.p||0)*100)}%)${m.ai.chosen==='none'?', rejected by the recorder':m.ai.chosen&&m.ai.chosen!==t.sci?', recorder chose '+esc(m.ai.chosen):''}</span>` }
   if(p.note) h+=esc(p.note)+'<br>';
   if(photos.length) h+=`<span class="pp">${photos.map(ph=>`<a href="${esc(ph.url)}" target="_blank" rel="noopener"><img src="${esc(ph.url)}" alt="${esc(ph.caption||p.title)}" loading="lazy"></a>`).join('')}</span>`;
   const bits=[p.by?'By '+esc(p.by):'', when, posTxt, m.via==='phone'?'from a phone':''].filter(Boolean);
