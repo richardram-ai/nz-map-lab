@@ -1,0 +1,15 @@
+Aotearoa Species Classifier, small model (ONNX), as used by this site.
+
+Model weights: Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)
+https://creativecommons.org/licenses/by-nc/4.0/legalcode
+Made by the TAIAO project, University of Waikato and University of Canterbury.
+https://github.com/Waikato/aotearoa-species-classifier
+Original file: species_classifier_fp32_384_384.onnx, release model-small-onnx-fp32-384-v1.0.
+
+Changes made for this site: weights stored at half precision and converted back to full precision on loading;
+file split into four parts; label file slimmed. See README.md.
+
+The classifier was initialised from timm/tf_efficientnetv2_s.in21k (https://huggingface.co/timm/tf_efficientnetv2_s.in21k),
+which is licensed under the Apache License, Version 2.0. A copy of that licence is in LICENSE-Apache-2.0.txt.
+
+The training images (from iNaturalist) are not included and remain subject to their own licences.

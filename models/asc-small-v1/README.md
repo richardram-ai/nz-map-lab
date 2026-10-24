@@ -7,7 +7,7 @@ Used by the phone form to suggest species from a photo. The suggestions run on t
   (SHA-256 1905b995f53f58cfab8c611c388ff670bab2dcb5019e8cceec0937e9f0291e68)
 - Licence: model weights CC BY-NC 4.0 (https://creativecommons.org/licenses/by-nc/4.0/). Initialised from
   timm/tf_efficientnetv2_s.in21k, Apache-2.0 (https://huggingface.co/timm/tf_efficientnetv2_s.in21k).
-- Non-commercial use only.
+- Non-commercial use only. Full terms: LICENSE.txt and LICENSE-Apache-2.0.txt in this folder.
 
 ## Changes made here
 
