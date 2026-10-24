@@ -38,7 +38,7 @@ async function loadConfig(env, request) {
 }
 
 // Check a task record's fields against the settings, and work out whether it needs an ID check.
-function cleanTask(p, cfg, hasPhotos) {
+function cleanTask(p, cfg, hasPhotos, ai) {
   const task = (cfg && cfg.tasks || []).find(t => t.id === p.task);
   if (!task) throw new Error('That task is not set up for this map.');
   const given = p.fields && typeof p.fields === 'object' ? p.fields : {};
@@ -53,10 +53,15 @@ function cleanTask(p, cfg, hasPhotos) {
       const item = list.find(i => i.id === v.id);
       if (!item && !other) throw new Error(`“${fd.label}”: choose from the list.`);
       const conf = (cfg.identification && cfg.identification.confidence || []).map(c => c.id).includes(v.confidence) ? v.confidence : null;
+      const sci = String(v.sci || '').trim().slice(0, 80);
+      // A species not on the list counts as identified only when this field allows it, the photo helper suggested
+      // exactly that species at or above the field's threshold, and the person picked it and is sure.
+      const hit = ai && ai.field === fd.id && ai.chosen === sci && sci && (ai.top || []).find(t => t.sci === sci);
+      const fromPhoto = other && v.photo === true && fd.unlisted_from_photo && hit && hit.p >= fd.unlisted_from_photo && conf === 'sure';
       fields[fd.id] = other
-        ? { id: 'other', label: String(v.other || 'Not sure').trim().slice(0, 80) || 'Not sure', sci: String(v.sci || '').trim().slice(0, 80), confidence: conf || 'unsure' }
+        ? { id: 'other', label: String(v.other || 'Not sure').trim().slice(0, 80) || 'Not sure', sci, confidence: conf || 'unsure', ...(fromPhoto ? { from_photo: true, not_on_list: true } : {}) }
         : { id: item.id, label: item.common, sci: item.sci || '', confidence: fd.confidence === false ? null : conf };
-      if (fd.confidence !== false && (other || conf === 'unsure')) needsId = true;
+      if (fd.confidence !== false && ((other && !fromPhoto) || conf === 'unsure')) needsId = true;
     } else if (fd.type === 'choice') {
       if (!fd.options.includes(v)) throw new Error(`“${fd.label}”: choose one of the options.`);
       fields[fd.id] = v;
@@ -94,8 +99,17 @@ function cleanFeature(f, cfg) {
     .map(ph => ({ url: ph.url, caption: str(ph.caption, 120), taken: str(ph.taken, 32), lat: num(ph.lat, -90, 90), lon: num(ph.lon, -180, 180) }));
   // Details captured automatically by the phone form.
   const m = p.meta || {};
+  let ai = null;
+  // Suggestions from the on-phone species classifier, kept so a reviewer can see what it proposed.
+  if (m.ai && typeof m.ai === 'object' && Array.isArray(m.ai.top)) {
+    ai = {
+      model: str(m.ai.model, 60), field: str(m.ai.field, 40), backend: str(m.ai.backend, 10), ms: num(m.ai.ms, 0, 600000),
+      top: m.ai.top.slice(0, 5).map(t => ({ sci: str(t && t.sci, 80), common: str(t && t.common, 80), p: num(t && t.p, 0, 1) })),
+      chosen: m.ai.chosen == null ? null : str(m.ai.chosen, 80),
+    };
+  }
   let taskInfo = null;
-  if (p.task) taskInfo = cleanTask(p, cfg, photos.length > 0);
+  if (p.task) taskInfo = cleanTask(p, cfg, photos.length > 0, ai);
   const meta = {
     accuracy_m: num(m.accuracy_m, 0, 100000),
     position: ['gps', 'moved', 'photo', 'map'].includes(m.position) ? m.position : null,
@@ -105,14 +119,7 @@ function cleanFeature(f, cfg) {
     device: str(m.device, 60),
     via: ['phone', 'desktop', 'import'].includes(m.via) ? m.via : null,
   };
-  // Suggestions from the on-phone species classifier, kept so a reviewer can see what it proposed.
-  if (m.ai && typeof m.ai === 'object' && Array.isArray(m.ai.top)) {
-    meta.ai = {
-      model: str(m.ai.model, 60), field: str(m.ai.field, 40), backend: str(m.ai.backend, 10), ms: num(m.ai.ms, 0, 600000),
-      top: m.ai.top.slice(0, 5).map(t => ({ sci: str(t && t.sci, 80), common: str(t && t.common, 80), p: num(t && t.p, 0, 1) })),
-      chosen: m.ai.chosen == null ? null : str(m.ai.chosen, 80),
-    };
-  }
+  if (ai) meta.ai = ai;
   if (taskInfo) {
     meta.task = taskInfo.task.id;
     meta.fields = taskInfo.fields;

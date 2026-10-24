@@ -368,7 +368,8 @@ function pickSuggestion(fid,i){
   if(i==='none'){ st.chosen='none'; values[fid]={id:'other',confidence:'unsure',other:(values[fid]&&values[fid].other)||'',q:''}; renderFields(); return }
   const t=st.top[+i]; st.chosen=+i;
   const it=listItems(fd.list).find(x=>sciKey(x.sci)===sciKey(t.sci));
-  values[fid]=it?{id:it.id,confidence:t.p>=.9?'sure':'think',other:'',q:''}:{id:'other',other:t.common||t.sci,sci:t.sci,confidence:'think',q:''};
+  const trust=!it&&fd.unlisted_from_photo&&t.p>=fd.unlisted_from_photo;
+  values[fid]=it?{id:it.id,confidence:t.p>=.9?'sure':'think',other:'',q:''}:{id:'other',other:t.common||t.sci,sci:t.sci,confidence:trust?'sure':'think',photo:trust,q:''};
   renderFields();
 }
 function aiMeta(){
@@ -376,7 +377,7 @@ function aiMeta(){
     top:st.top.map(t=>({sci:t.sci,common:t.common,p:Math.round(t.p*1000)/1000})),chosen:st.chosen==null?null:(st.chosen==='none'?'none':st.top[st.chosen].sci)};
   return null;
 }
-function needsIdFor(fd){ const v=values[fd.id]; return fd.type==='list'&&fd.confidence!==false&&v&&(v.id==='other'||v.confidence==='unsure') }
+function needsIdFor(fd){ const v=values[fd.id]; return fd.type==='list'&&fd.confidence!==false&&v&&((v.id==='other'&&!v.photo)||v.confidence==='unsure') }
 function recordNeedsId(){ return task&&task.fields.some(needsIdFor) }
 $('fields').addEventListener('click',e=>{
   const b=e.target.closest('button'); if(!b) return;
@@ -394,14 +395,14 @@ $('fields').addEventListener('click',e=>{
 $('fields').addEventListener('input',e=>{
   const t=e.target;
   if(t.dataset.search){ const id=t.dataset.search; values[id]={...(values[id]||{}),q:t.value}; const pos=t.selectionStart; renderFields(); const n=document.querySelector(`[data-search="${id}"]`); if(n){n.focus();n.setSelectionRange(pos,pos)} return }
-  if(t.dataset.other){ values[t.dataset.other]={...values[t.dataset.other],other:t.value} }
+  if(t.dataset.other){ values[t.dataset.other]={...values[t.dataset.other],other:t.value,photo:false} }
   if(t.dataset.num){ values[t.dataset.num]=t.value===''?'':Number(t.value) }
   if(t.dataset.text){ values[t.dataset.text]=t.value }
   updateTitlePreview();
 });
 function displayValue(fd,v){
   if(v===undefined||v===''||v===null) return '';
-  if(fd.type==='list'){ if(v.id==='other') return v.other?v.other+' (unconfirmed)':'Unidentified'; if(fd.title_uses==='id') return v.id; const it=listItems(fd.list).find(i=>i.id===v.id); return it?itemLabel(it):v.id }
+  if(fd.type==='list'){ if(v.id==='other') return v.other?v.other+(v.photo&&v.confidence!=='unsure'?'':' (unconfirmed)'):'Unidentified'; if(fd.title_uses==='id') return v.id; const it=listItems(fd.list).find(i=>i.id===v.id); return it?itemLabel(it):v.id }
   if(fd.type==='yesno') return v?'Yes':'No';
   return String(v);
 }
@@ -532,7 +533,7 @@ $('save').addEventListener('click',async()=>{
   if(missing){ flash(`Choose or fill in “${missing.label}”.`,'err'); return }
   if(recordNeedsId()&&SETTINGS.identification&&SETTINGS.identification.photo_required_when_unsure&&!photos.length){ flash('Add a photo so someone can check the identification.','err'); return }
   if(!title){ flash('Give it a short title.','err'); return }
-  const fieldsOut={}; task.fields.forEach(fd=>{ const v=values[fd.id]; if(v===undefined||v==='') return; fieldsOut[fd.id]=fd.type==='list'?{id:v.id,other:v.other||'',sci:v.sci||'',confidence:fd.confidence===false?null:(v.confidence||'sure')}:v });
+  const fieldsOut={}; task.fields.forEach(fd=>{ const v=values[fd.id]; if(v===undefined||v==='') return; fieldsOut[fd.id]=fd.type==='list'?{id:v.id,other:v.other||'',sci:v.sci||'',photo:!!v.photo,confidence:fd.confidence===false?null:(v.confidence||'sure')}:v });
   store.set('map-by',by); store.set('map-edit-code',code);
   const feature={type:'Feature',geometry:{type:'Point',coordinates:[+pos.lon.toFixed(6),+pos.lat.toFixed(6)]},
     properties:{title,cat:task.category||cat,note:$('note').value.trim(),by,task:task.id,fields:fieldsOut,

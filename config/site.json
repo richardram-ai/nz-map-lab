@@ -47,7 +47,8 @@
       "category": "Observation",
       "title": "{species}",
       "fields": [
-        { "id": "species", "label": "What did you see?", "type": "list", "list": "wildlife", "required": true },
+        { "id": "species", "label": "What did you see?", "type": "list", "list": "wildlife", "required": true, "unlisted_from_photo": 0.95,
+          "_unlisted_from_photo": "A species not on the list, picked from a photo suggestion at this confidence or higher, is saved by name without needing an ID check." },
         { "id": "count", "label": "How many?", "type": "number", "min": 1, "max": 500, "default": 1 }
       ]
     },
@@ -121,7 +122,8 @@
       { "id": "ngaio", "common": "Ngaio", "maori": "Ngaio", "sci": "Myoporum laetum" },
       { "id": "kawakawa", "common": "Kawakawa", "maori": "Kawakawa", "sci": "Piper excelsum" },
       { "id": "akeake", "common": "Akeake", "maori": "Akeake", "sci": "Dodonaea viscosa" },
-      { "id": "purei", "common": "Swamp sedge", "maori": "Pūrei", "sci": "Carex secta" }
+      { "id": "purei", "common": "Swamp sedge", "maori": "Pūrei", "sci": "Carex secta" },
+      { "id": "whauwhaupaku", "common": "Five finger", "maori": "Whauwhaupaku", "sci": "Pseudopanax arboreus" }
     ],
     "weeds": [
       { "id": "tradescantia", "common": "Tradescantia", "maori": "", "sci": "Tradescantia fluminensis" },
@@ -147,6 +149,7 @@
       { "id": "ruru", "common": "Morepork", "maori": "Ruru", "sci": "Ninox novaeseelandiae" },
       { "id": "korimako", "common": "Bellbird", "maori": "Korimako", "sci": "Anthornis melanura" },
       { "id": "kowhai-tree", "common": "Kōwhai (tree)", "maori": "Kōwhai", "sci": "Sophora microphylla" },
+      { "id": "whauwhaupaku-tree", "common": "Five finger", "maori": "Whauwhaupaku", "sci": "Pseudopanax arboreus" },
       { "id": "monarch", "common": "Monarch butterfly", "maori": "Kahuku", "sci": "Danaus plexippus" },
       { "id": "skink", "common": "Skink", "maori": "Mokomoko", "sci": "Scincidae" },
       { "id": "eel", "common": "Eel", "maori": "Tuna", "sci": "Anguilla spp." }
