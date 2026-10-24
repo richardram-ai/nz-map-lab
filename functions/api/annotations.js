@@ -149,6 +149,62 @@ export async function onRequestGet({ env }) {
   try { return json(await callSheet(env)); } catch (e) { return json({ error: e.message }, 502); }
 }
 
+// ---- Review: confirm, correct or set aside a record's identification (used by /review/).
+function titleFor(task, fields, title) {
+  return (task.title || '{title}').replace(/\{(\w+)\}/g, (m, id) => {
+    const fd = task.fields.find(f => f.id === id); const v = fields[id];
+    if (!fd || v === undefined || v === null || v === '') return id === 'title' ? title || '' : '';
+    if (fd.type === 'list') { if (v.id === 'other') return v.label + (v.confidence === 'sure' ? '' : ' (unconfirmed)'); return fd.title_uses === 'id' ? v.id : v.label; }
+    if (fd.type === 'yesno') return v ? 'Yes' : 'No';
+    return String(v);
+  }).replace(/\s+/g, ' ').replace(/[:×(]\s*\)?\s*$/, '').trim().slice(0, 80) || title || 'Untitled';
+}
+async function review(env, cfg, body) {
+  const id = String(body.id || '');
+  if (!/^[A-Za-z0-9-]{4,64}$/.test(id)) throw new Error('That record id is not valid.');
+  const all = await callSheet(env);
+  const f = (all.features || []).find(x => x.properties.id === id);
+  if (!f) throw new Error('That record was not found.');
+  const meta = { ...(f.properties.meta || {}) };
+  const task = (cfg.tasks || []).find(t => t.id === meta.task);
+  if (!task) throw new Error('Only records made with a task can be reviewed here.');
+  const fields = { ...(meta.fields || {}) };
+  const decision = String(body.decision || '');
+  const by = String(body.by || '').trim().slice(0, 60);
+  if (!by) throw new Error('Add your name so others know who reviewed it.');
+  const before = {};
+  const listFields = task.fields.filter(fd => fd.type === 'list' && fd.confidence !== false);
+  if (decision === 'confirm') {
+    listFields.forEach(fd => { if (fields[fd.id]) fields[fd.id] = { ...fields[fd.id], confidence: 'sure' }; });
+  } else if (decision === 'correct') {
+    const given = body.fields && typeof body.fields === 'object' ? body.fields : {};
+    for (const fd of listFields) {
+      const v = given[fd.id]; if (!v) continue;
+      const list = (cfg.lists || {})[fd.list] || [];
+      before[fd.id] = fields[fd.id] ? { label: fields[fd.id].label, sci: fields[fd.id].sci || '' } : null;
+      if (v.id === 'other') {
+        const label = String(v.label || '').trim().slice(0, 80), sci = String(v.sci || '').trim().slice(0, 80);
+        if (!label && !sci) throw new Error(`“${fd.label}”: give a name.`);
+        fields[fd.id] = { id: 'other', label: label || sci, sci, confidence: 'sure', not_on_list: true, by_reviewer: true };
+      } else {
+        const item = list.find(i => i.id === v.id);
+        if (!item) throw new Error(`“${fd.label}”: choose from the list.`);
+        fields[fd.id] = { id: item.id, label: item.common, sci: item.sci || '', confidence: 'sure' };
+      }
+    }
+    if (!Object.keys(before).length) throw new Error('Choose the correct species first.');
+  } else if (decision !== 'cannot' && decision !== 'reopen') {
+    throw new Error('Unknown review decision.');
+  }
+  const status = decision === 'cannot' ? 'cannot-id' : decision === 'reopen' ? 'needs-id' : 'confirmed';
+  meta.fields = fields;
+  meta.review = { status, by, at: new Date().toISOString(), ...(decision === 'correct' ? { changed: true, before } : {}),
+    ...(body.note ? { note: String(body.note).trim().slice(0, 200) } : {}),
+    history: [...((meta.review && meta.review.history) || []), ...(meta.review && meta.review.at ? [{ status: meta.review.status, by: meta.review.by, at: meta.review.at }] : [])].slice(-10) };
+  const title = decision === 'cannot' || decision === 'reopen' ? f.properties.title : titleFor(task, fields, f.properties.title);
+  return callSheet(env, { action: 'update', id, title, meta });
+}
+
 export async function onRequestPost({ request, env }) {
   if (!configured(env)) return json({ error: 'Shared annotations are not set up yet.' }, 503);
   if ((request.headers.get('X-Edit-Code') || '') !== env.EDIT_CODE) return json({ error: 'That editing code is not right.' }, 403);
@@ -160,6 +216,11 @@ export async function onRequestPost({ request, env }) {
       const cfg = await loadConfig(env, request);
       if (!cfg || !cfg.area || !cfg.area.bounds) return json({ error: 'The settings file (config/site.json) is missing its area.' }, 503);
       return json(await callSheet(env, { action: 'add', features: list.map(f => cleanFeature(f, cfg)) }));
+    }
+    if (body.action === 'review') {
+      const cfg = await loadConfig(env, request);
+      if (!cfg) return json({ error: 'The settings file could not be read.' }, 503);
+      return json(await review(env, cfg, body));
     }
     if (body.action === 'delete') {
       const id = String(body.id || '');

@@ -4,6 +4,7 @@
  * (Execute as: Me, Who has access: Anyone). Only requests carrying TOKEN are answered,
  * and only the Cloudflare function knows TOKEN.
  * Deleting an annotation marks the row "yes" in the deleted column rather than removing it, so nothing is lost.
+ * The review screen updates a record's title and details columns in place (action 'update').
  * Photos: the Cloudflare function sends a copy of each photo here; it is saved to the "NZ Map Lab photos"
  * Drive folder and listed on the Photos tab. The map itself shows photos from Cloudflare R2.
  */
@@ -105,6 +106,13 @@ function doPost(e) {
       const i = ids.indexOf(String(body.id));
       if (i < 0) return out_({ error: 'Annotation not found' });
       sh.getRange(i + 2, 9).setValue('yes');
+    } else if (body.action === 'update') {
+      // Used by the review screen: replaces a record's title and details (task fields, review status).
+      const ids = sh.getRange(2, 1, Math.max(sh.getLastRow() - 1, 1), 1).getValues().map(r => String(r[0]));
+      const i = ids.indexOf(String(body.id));
+      if (i < 0) return out_({ error: 'Annotation not found' });
+      if (typeof body.title === 'string') sh.getRange(i + 2, 2).setValue(body.title);
+      if (body.meta && typeof body.meta === 'object') sh.getRange(i + 2, 11).setValue(JSON.stringify(body.meta));
     } else {
       return out_({ error: 'Unknown action' });
     }

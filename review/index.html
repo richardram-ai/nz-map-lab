@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en-NZ">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Review Records · NZ Map Lab</title>
+<meta name="robots" content="noindex">
+<style>
+/* Review screen: records that need an identification check, with their photos and the photo helper's suggestions.
+   Confirm, correct or set aside each one. Changes are written back to the Google Sheet. */
+:root{
+  --bg:#F5F7F3; --card:#FCFDFB; --sage:#E1E8DC; --ink:#303A2E; --muted:#5f6b5a; --rule:#B8C5B0;
+  --accent:#56664D; --accent-ink:#FCFDFB; --water:#28699a; --alert:#b8334a; --warn:#a8661a;
+  --font:"Aptos","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#151a14; --card:#1c2219; --sage:#262e22; --ink:#e3e8df; --muted:#a2ad9c; --rule:#3a4535;
+  --accent:#9db08f; --accent-ink:#0c1410; --water:#6aa8d6; --alert:#e66a7f; --warn:#d89a4c; color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#151a14; --card:#1c2219; --sage:#262e22; --ink:#e3e8df; --muted:#a2ad9c; --rule:#3a4535;
+  --accent:#9db08f; --accent-ink:#0c1410; --water:#6aa8d6; --alert:#e66a7f; --warn:#d89a4c; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:15px;line-height:1.45}
+a{color:var(--water)}
+button{font:inherit;font-size:.9rem;padding:7px 12px;border:1.5px solid var(--rule);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;min-height:38px}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
+button.quiet{border-color:transparent;background:none;color:var(--muted);text-decoration:underline;padding:4px 6px;min-height:0}
+button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+input[type=text],input[type=password],input[type=search]{font:inherit;font-size:16px;padding:8px 10px;border:1.5px solid var(--rule);border-radius:8px;background:var(--card);color:var(--ink);width:100%}
+.wrap{max-width:1180px;margin:0 auto;padding:16px max(16px,env(safe-area-inset-left,0px)) 40px max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:16px}
+header{display:flex;flex-wrap:wrap;align-items:end;gap:10px 20px;border-bottom:1px solid var(--rule);padding-bottom:12px}
+header h1{margin:0;font-size:1.6rem;letter-spacing:-.01em}
+header p{margin:0;color:var(--muted);max-width:62ch}
+header .links{margin-left:auto;display:flex;gap:14px;font-size:.9rem}
+.who{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:8px;align-items:end;background:var(--card);border:1px solid var(--rule);border-radius:12px;padding:12px}
+.who label{display:flex;flex-direction:column;gap:3px;font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent)}
+.tabs{display:flex;flex-wrap:wrap;gap:6px}
+.tabs button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
+.tabs .n{font-variant-numeric:tabular-nums;opacity:.8;margin-left:4px}
+.list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--rule);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.card.needs{border-left:4px solid var(--warn)}
+.card.done{border-left:4px solid var(--accent)}
+.card h2{margin:0;font-size:1.1rem;line-height:1.25}
+.meta{font-size:.8rem;color:var(--muted)}
+.badge{display:inline-block;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:1px 6px;border:1.5px solid currentColor;border-radius:4px;vertical-align:2px;margin-left:6px}
+.badge.needs{color:var(--warn)} .badge.ok{color:var(--accent)} .badge.cant{color:var(--muted)}
+.photos{display:flex;gap:6px;overflow-x:auto}
+.photos a{flex:none}
+.photos img{height:150px;width:auto;max-width:100%;border-radius:8px;border:1px solid var(--rule);display:block;object-fit:cover}
+dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 10px;margin:0;font-size:.9rem}
+dt{color:var(--muted)} dd{margin:0}
+.ai{font-size:.84rem;border-radius:8px;background:var(--sage);padding:8px 10px;display:flex;flex-direction:column;gap:3px}
+.ai .t{font-weight:700;color:var(--accent);font-size:.72rem;text-transform:uppercase;letter-spacing:.06em}
+.acts{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chooser{display:flex;flex-direction:column;gap:6px;border:1px dashed var(--rule);border-radius:10px;padding:10px}
+.opts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;max-height:260px;overflow:auto}
+.opts button{text-align:left;line-height:1.2;padding:7px 9px}
+.opts button small{display:block;color:var(--muted);font-size:.72rem;font-style:italic}
+.opts .grp{grid-column:1/-1;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-top:4px}
+.opts .sug{border-color:var(--accent)}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 14px;border-radius:8px;font-size:.9rem;z-index:10;max-width:90vw}
+.empty{color:var(--muted);padding:20px;text-align:center;border:1px dashed var(--rule);border-radius:12px}
+.reviewed{font-size:.82rem;color:var(--muted)}
+footer{font-size:.74rem;color:var(--muted);border-top:1px solid var(--rule);padding-top:10px}
+@media (max-width:760px){.list{grid-template-columns:minmax(0,1fr)} .who{grid-template-columns:minmax(0,1fr)} header .links{margin-left:0}}
+@media print{body,.card,.who{background:#fff} .who,.tabs,.acts,.chooser,header .links{display:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div>
+    <h1>Review records</h1>
+    <p>Check the identification on records marked Needs ID. Confirm what the recorder chose, correct it, or set it aside if the photo can’t settle it.</p>
+  </div>
+  <div class="links"><a href="/">Open the map</a><a href="/add/">Add a record</a></div>
+</header>
+
+<div class="who">
+  <label>Your name <input type="text" id="by" autocomplete="name" placeholder="Shown on each review"></label>
+  <label>Editing code <input type="password" id="code" autocomplete="off" placeholder="Same code as the phone form"></label>
+  <button type="button" id="reload">Refresh</button>
+</div>
+
+<div class="tabs" id="tabs" role="group" aria-label="Show"></div>
+<div class="list" id="list"><p class="empty">Loading records…</p></div>
+<footer>Photo suggestions: <a href="https://github.com/Waikato/aotearoa-species-classifier" target="_blank" rel="noopener">Aotearoa Species Classifier</a> by the TAIAO project, University of Waikato and University of Canterbury (CC BY-NC 4.0), run in this browser with ONNX Runtime (MIT).</footer>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script src="/add/identify.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const store={get(k,d=''){try{return localStorage.getItem(k)??d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+let CFG=null, RECS=[], VIEW=store.get('nzml-review-tab','needs'), OPEN={}, ALL=null;
+$('by').value=store.get('map-by'); $('code').value=store.get('map-edit-code');
+['by','code'].forEach(id=>$(id).addEventListener('change',()=>store.set(id==='by'?'map-by':'map-edit-code',$(id).value.trim())));
+function toast(t){const e=$('toast');e.textContent=t;e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>e.hidden=true,4000)}
+
+const statusOf=r=>(r.properties.meta&&r.properties.meta.review&&r.properties.meta.review.status)||'none';
+const taskOf=r=>CFG&&r.properties.meta&&(CFG.tasks||[]).find(t=>t.id===r.properties.meta.task);
+const TABS=[['needs','Needs ID',r=>statusOf(r)==='needs-id'],['unreviewed','Not yet reviewed',r=>statusOf(r)==='unreviewed'],
+  ['done','Reviewed',r=>['confirmed','cannot-id'].includes(statusOf(r))],['all','All',r=>true]];
+
+async function load(){
+  try{
+    if(!CFG) CFG=await (await fetch('/config/site.json',{cache:'no-cache'})).json();
+    const g=await (await fetch('/api/annotations',{cache:'no-store'})).json();
+    if(g.error) throw new Error(g.error);
+    RECS=(g.features||[]).filter(f=>f.properties.meta&&f.properties.meta.task).sort((a,b)=>String(b.properties.added).localeCompare(String(a.properties.added)));
+    render();
+  }catch(e){ $('list').innerHTML=`<p class="empty">Records couldn’t be loaded: ${esc(e.message)}</p>` }
+}
+function render(){
+  $('tabs').innerHTML=TABS.map(([id,lab,fn])=>`<button type="button" data-tab="${id}" aria-pressed="${VIEW===id}">${lab}<span class="n">${RECS.filter(fn).length}</span></button>`).join('');
+  const fn=TABS.find(t=>t[0]===VIEW)[2], show=RECS.filter(fn);
+  $('list').innerHTML=show.length?show.map(card).join(''):`<p class="empty">${VIEW==='needs'?'Nothing needs an ID check. ':''}No records here.</p>`;
+}
+function fieldText(fd,v){
+  if(v&&typeof v==='object') return esc(v.label)+(v.sci?` <i>(${esc(v.sci)})</i>`:'')+(v.confidence==='think'?', probably':v.confidence==='unsure'&&v.label!=='Not sure'?', not sure':'')+(v.not_on_list?', not on our list':'');
+  if(v===true) return 'Yes'; if(v===false) return 'No'; return esc(v);
+}
+function card(r){
+  const p=r.properties, m=p.meta||{}, t=taskOf(r), st=statusOf(r), rv=m.review||{};
+  const when=p.added?new Date(p.added).toLocaleString('en-NZ',{day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'}):'';
+  const badge=st==='needs-id'?'<span class="badge needs">Needs ID</span>':st==='confirmed'?'<span class="badge ok">Confirmed</span>':st==='cannot-id'?'<span class="badge cant">Can’t identify</span>':'';
+  const photos=(p.photos||[]).map(ph=>`<a href="${esc(ph.url)}" target="_blank" rel="noopener"><img src="${esc(ph.url)}" alt="${esc(ph.caption||p.title)}" loading="lazy"></a>`).join('');
+  const defs=t?t.fields:Object.keys(m.fields||{}).map(k=>({id:k,label:k}));
+  const rows=defs.filter(fd=>m.fields&&m.fields[fd.id]!==undefined&&fd.id!=='title').map(fd=>`<dt>${esc(fd.label)}</dt><dd>${fieldText(fd,m.fields[fd.id])}</dd>`).join('');
+  const ai=m.ai&&Array.isArray(m.ai.top)?`<div class="ai"><span class="t">Photo helper suggested</span>${m.ai.top.filter((x,i)=>i===0||x.p>=.01).map(x=>`<span>${esc(x.common||x.sci)} <i>${esc(x.sci)}</i> · ${Math.round((x.p||0)*100)}%${m.ai.chosen===x.sci?' · <b>chosen by the recorder</b>':''}</span>`).join('')}${m.ai.chosen==='none'?'<span>The recorder chose “None of these”.</span>':''}</div>`:'';
+  const listFields=t?t.fields.filter(fd=>fd.type==='list'&&fd.confidence!==false):[];
+  const canReview=!!listFields.length;
+  const done=['confirmed','cannot-id'].includes(st);
+  const revText=rv.at?`<p class="reviewed">${st==='confirmed'?(rv.changed?'Corrected':'Confirmed'):st==='cannot-id'?'Set aside':'Reopened'} by ${esc(rv.by)}, ${new Date(rv.at).toLocaleDateString('en-NZ',{day:'numeric',month:'short',year:'numeric'})}${rv.changed&&rv.before?' · was '+Object.values(rv.before).filter(Boolean).map(b=>esc(b.label)).join(', '):''}${rv.note?' · '+esc(rv.note):''}</p>`:'';
+  const acts=!canReview?'':done?`<div class="acts"><button type="button" data-act="reopen" data-id="${p.id}">Reopen</button></div>`:
+    `<div class="acts"><button type="button" class="primary" data-act="confirm" data-id="${p.id}">Confirm</button><button type="button" data-act="choose" data-id="${p.id}">Correct…</button><button type="button" data-act="cannot" data-id="${p.id}">Can’t identify</button>${(p.photos||[]).length&&window.NZID?`<button type="button" class="quiet" data-act="helper" data-id="${p.id}">${m.ai?'Run the photo helper again':'Run the photo helper'}</button>`:''}</div>`;
+  return `<article class="card ${st==='needs-id'?'needs':done?'done':''}" id="r-${p.id}">
+    <h2>${esc(p.title)}${badge}</h2>
+    <span class="meta">${esc(t?t.label:'Record')}${!t||t.label!==p.cat?' · '+esc(p.cat):''}${p.by?' · '+esc(p.by):''} · ${esc(when)}${m.accuracy_m?` · GPS ±${m.accuracy_m} m`:''} · <a href="/embed/?open=${encodeURIComponent(p.id)}&zoom=18&base=aerial&title=${encodeURIComponent(p.title)}" target="_blank" rel="noopener">Show on map</a></span>
+    ${photos?`<div class="photos">${photos}</div>`:'<span class="meta">No photo.</span>'}
+    ${rows?`<dl>${rows}</dl>`:''}${p.note?`<p style="margin:0;font-size:.9rem">${esc(p.note)}</p>`:''}
+    ${ai}${revText}${acts}
+    ${OPEN[p.id]?chooser(r,listFields[0]):''}
+  </article>`;
+}
+function chooser(r,fd){
+  const o=OPEN[r.properties.id], list=(CFG.lists||{})[fd.list]||[], q=(o.q||'').trim().toLowerCase(), m=r.properties.meta||{};
+  const match=x=>!q||[x.common,x.maori,x.sci].some(s=>s&&s.toLowerCase().includes(q));
+  const sug=(o.ai||m.ai&&m.ai.top||[]).filter((x,i)=>i===0||x.p>=.01);
+  const onList=x=>list.find(i=>i.sci&&x.sci&&i.sci.toLowerCase().split(' ').slice(0,2).join(' ')===x.sci.toLowerCase().split(' ').slice(0,2).join(' '));
+  let h='';
+  if(sug.length&&!q){ h+='<span class="grp">Photo helper’s suggestions</span>'+sug.map(x=>{const it=onList(x); return it?`<button type="button" class="sug" data-pick="list" data-v="${esc(it.id)}">${esc(it.common)}<small>${esc(it.sci)} · ${Math.round(x.p*100)}%</small></button>`:`<button type="button" class="sug" data-pick="other" data-label="${esc(x.common||x.sci)}" data-sci="${esc(x.sci)}">${esc(x.common||x.sci)}<small>${esc(x.sci)} · ${Math.round(x.p*100)}% · not on our list</small></button>`}).join('') }
+  const L=list.filter(match);
+  h+=`<span class="grp">Our ${esc(fd.list)} list</span>`+(L.length?L.map(it=>`<button type="button" data-pick="list" data-v="${esc(it.id)}">${esc(it.common)}<small>${esc([it.maori!==it.common?it.maori:'',it.sci].filter(Boolean).join(' · '))}</small></button>`).join(''):'<span class="meta">No match on our list.</span>');
+  if(q.length>=3&&ALL){ const A=ALL.filter(x=>x[0].toLowerCase().includes(q)||(x[1]||'').toLowerCase().includes(q)||(x[2]||'').toLowerCase().includes(q)).slice(0,20);
+    h+='<span class="grp">All New Zealand species the helper knows</span>'+(A.length?A.map(x=>`<button type="button" data-pick="other" data-label="${esc(x[1]||x[0])}" data-sci="${esc(x[0])}">${esc(x[1]||x[0])}<small>${esc([x[2],x[0]].filter(Boolean).join(' · '))}</small></button>`).join(''):'<span class="meta">No match.</span>') }
+  else if(q.length>=3) h+='<span class="meta">Loading the full species list…</span>';
+  return `<div class="chooser" data-for="${r.properties.id}"><input type="search" data-q="${r.properties.id}" value="${esc(o.q||'')}" placeholder="Search our list, or type 3+ letters to search all NZ species" autocomplete="off">
+    <div class="opts">${h}</div>
+    <div class="acts"><input type="text" data-note="${r.properties.id}" value="${esc(o.note||'')}" placeholder="Note for the record (optional)" maxlength="200" style="flex:1;min-width:180px"><button type="button" class="quiet" data-act="close" data-id="${r.properties.id}">Cancel</button></div></div>`;
+}
+async function loadAll(){ if(ALL) return; try{ ALL=await (await fetch('/models/asc-small-v1/labels.json')).json() }catch(e){ ALL=[] } render() }
+
+async function send(id,decision,extra={}){
+  const by=$('by').value.trim(), code=$('code').value.trim();
+  if(!by||!code){ toast('Add your name and the editing code first.'); (by?$('code'):$('by')).focus(); return }
+  store.set('map-by',by); store.set('map-edit-code',code);
+  try{
+    const r=await fetch('/api/annotations',{method:'POST',headers:{'Content-Type':'application/json','X-Edit-Code':code},body:JSON.stringify({action:'review',id,decision,by,...extra})});
+    const j=await r.json(); if(!r.ok||j.error) throw new Error(j.error||('Error '+r.status));
+    delete OPEN[id];
+    RECS=(j.features||[]).filter(f=>f.properties.meta&&f.properties.meta.task).sort((a,b)=>String(b.properties.added).localeCompare(String(a.properties.added)));
+    render(); toast({confirm:'Confirmed.',correct:'Corrected and confirmed.',cannot:'Set aside as can’t identify.',reopen:'Reopened: it needs an ID again.'}[decision]);
+  }catch(e){ toast('Not saved: '+e.message) }
+}
+async function helper(id){
+  const r=RECS.find(x=>x.properties.id===id); if(!r) return;
+  const b=document.querySelector(`[data-act="helper"][data-id="${id}"]`); if(b){b.disabled=true;b.textContent='Looking at the photo… (the first time downloads about 101 MB)'}
+  try{
+    const blob=await (await fetch(r.properties.photos[0].url)).blob();
+    const res=await NZID.identify(blob);
+    OPEN[id]={...(OPEN[id]||{}),ai:res.top}; render(); document.getElementById('r-'+id).scrollIntoView({block:'nearest'});
+  }catch(e){ toast('The photo helper couldn’t run: '+(e.message||e)); render() }
+}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  if(b.dataset.tab){ VIEW=b.dataset.tab; store.set('nzml-review-tab',VIEW); render(); return }
+  const id=b.dataset.id||(b.closest('.chooser')&&b.closest('.chooser').dataset.for);
+  if(b.dataset.act==='confirm') send(id,'confirm');
+  else if(b.dataset.act==='cannot') send(id,'cannot');
+  else if(b.dataset.act==='reopen') send(id,'reopen');
+  else if(b.dataset.act==='choose'){ OPEN[id]=OPEN[id]||{}; render(); const s=document.querySelector(`[data-q="${id}"]`); if(s) s.focus() }
+  else if(b.dataset.act==='close'){ delete OPEN[id]; render() }
+  else if(b.dataset.act==='helper') helper(id);
+  else if(b.dataset.pick){
+    const r=RECS.find(x=>x.properties.id===id), fd=taskOf(r).fields.find(f=>f.type==='list'&&f.confidence!==false);
+    const v=b.dataset.pick==='list'?{id:b.dataset.v}:{id:'other',label:b.dataset.label,sci:b.dataset.sci};
+    send(id,'correct',{fields:{[fd.id]:v},note:(OPEN[id]&&OPEN[id].note)||''});
+  }
+});
+document.addEventListener('input',e=>{
+  const t=e.target;
+  if(t.dataset.q){ const id=t.dataset.q; OPEN[id]={...OPEN[id],q:t.value}; if(t.value.trim().length>=3) loadAll(); const pos=t.selectionStart; render(); const n=document.querySelector(`[data-q="${id}"]`); if(n){n.focus();n.setSelectionRange(pos,pos)} }
+  if(t.dataset.note){ const id=t.dataset.note; OPEN[id]={...OPEN[id],note:t.value} }
+});
+$('reload').addEventListener('click',load);
+load();
+</script>
+</body>
+</html>

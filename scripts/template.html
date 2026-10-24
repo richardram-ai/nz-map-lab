@@ -325,6 +325,7 @@ input[type=checkbox],input[type=radio]{accent-color:var(--accent)}
       <ul class="annlist" id="annlist"></ul>
       <p class="hint" id="annstore" role="status"></p>
       <div class="phonebox no-print" id="phonebox" hidden><div id="qr" aria-hidden="true"></div><span>Recording in the field? Open <a id="phonelink" href="/add/">the phone form</a> on your phone, or scan this code. It uses your location and takes photos.</span></div>
+      <p class="hint no-print" id="reviewlink" hidden><a href="/review/">Review records</a><span id="reviewn"></span></p>
       <div class="sharedbar no-print" id="sharedbar" hidden>
         <label for="a-code">Editing code</label><input id="a-code" type="password" autocomplete="off" placeholder="Needed to add or delete">
         <button type="button" id="a-refresh">Refresh</button>
@@ -687,7 +688,8 @@ form.addEventListener('submit',e=>{
 document.getElementById('a-discard').addEventListener('click',()=>{pending=null;form.hidden=true;cancelDraw()});
 
 function annData(){return {type:'FeatureCollection',features:ANN.features.map(f=>({...f,properties:{...f.properties,_needs:!!(f.properties.meta&&f.properties.meta.review&&f.properties.meta.review.status==='needs-id')}}))}}
-function refreshAnnSource(){map.getSource('ann')?.setData(annData())}
+function refreshAnnSource(){map.getSource('ann')?.setData(annData());
+  const rl=document.getElementById('reviewlink'); if(rl&&!document.getElementById('sharedbar').hidden){ rl.hidden=false; const n=ANN.features.filter(f=>f.properties.meta&&f.properties.meta.review&&f.properties.meta.review.status==='needs-id').length; document.getElementById('reviewn').textContent=n?` · ${n} need${n===1?'s':''} an ID check`:' · nothing needs an ID check' } }
 function centroid(g){const c=g.type==='Point'?[g.coordinates]:(g.type==='LineString'?g.coordinates:g.coordinates[0]);return [c.reduce((a,b)=>a+b[0],0)/c.length,c.reduce((a,b)=>a+b[1],0)/c.length]}
 function renderAnnList(){
   const ul=document.getElementById('annlist'); ul.innerHTML='';
