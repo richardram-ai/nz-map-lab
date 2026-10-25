@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en-NZ"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Explore in 3D · NZ Map Lab</title>
+<meta name="description" content="The test area in Google's photorealistic 3D, with the group's records, Street View and place search.">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cesium@1.123.0/Build/Cesium/Widgets/widgets.css">
+<style>
+:root{--ink:#303A2E;--muted:#5f6b5a;--rule:#B8C5B0;--card:#FCFDFB;--sage:#E1E8DC;--accent:#56664D;--warn:#a8661a;
+  --font:"Aptos","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif}
+html,body{margin:0;height:100%;background:#E1E8DC;font-family:var(--font);color:var(--ink)}
+#globe{position:absolute;inset:0}
+.card{background:var(--card);border:1px solid var(--rule);border-radius:10px;box-shadow:0 2px 10px rgba(48,58,46,.18)}
+#panel{position:absolute;left:12px;top:12px;width:300px;max-width:calc(100% - 24px);padding:12px 14px;z-index:2;box-sizing:border-box}
+#panel h1{font-size:1.05rem;margin:0 0 2px}
+#panel p{margin:0 0 8px;font-size:.8rem;color:var(--muted);line-height:1.4}
+#panel label{display:flex;gap:6px;align-items:center;font-size:.85rem;margin:4px 0}
+#panel .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;font-size:.8rem}
+#panel .row a{color:var(--accent)}
+#search{margin:6px 0 8px}
+#search gmp-place-autocomplete{width:100%}
+#rec{position:absolute;right:12px;top:12px;width:290px;max-width:calc(100% - 24px);padding:10px 12px;z-index:2;box-sizing:border-box;font-size:.84rem;display:none}
+#rec .src{display:block;color:var(--muted);font-size:.7rem;text-transform:uppercase;letter-spacing:.06em}
+#rec b.t{display:block;font-size:.95rem;margin:2px 0 4px}
+#rec dl{display:grid;grid-template-columns:auto 1fr;gap:1px 8px;margin:4px 0} #rec dt{color:var(--muted)} #rec dd{margin:0}
+#rec .pp{display:flex;gap:4px;margin:6px 0} #rec .pp img{width:76px;height:76px;object-fit:cover;border-radius:4px}
+#rec .mm{display:block;color:var(--muted);font-size:.72rem;margin-top:4px}
+#rec .x,#sv .x{position:absolute;right:6px;top:4px;border:0;background:none;font-size:1.2rem;cursor:pointer;color:var(--muted)}
+.btn{font:inherit;font-size:.8rem;border:1px solid var(--accent);color:var(--accent);background:var(--card);border-radius:999px;padding:4px 10px;cursor:pointer}
+.btn:hover{background:var(--sage)}
+.glinks{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:8px;padding-top:6px;border-top:1px solid var(--sage);font-size:.74rem}
+.glinks a{color:var(--muted);text-decoration:none;white-space:nowrap} .glinks a::after{content:' ↗';font-size:.9em}
+#sv{position:absolute;right:12px;bottom:40px;width:min(480px,calc(100% - 24px));height:min(320px,45vh);z-index:3;display:none;overflow:hidden}
+#sv .pano{position:absolute;inset:0}
+#sv .x{z-index:2;background:rgba(252,253,251,.9);border-radius:4px;padding:0 6px}
+#msg{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:16px 18px;max-width:340px;z-index:4;display:none;font-size:.9rem;line-height:1.45}
+.cesium-viewer-bottom{z-index:1}
+@media (max-width:640px){
+  #panel{top:auto;bottom:34px;left:8px;right:8px;width:auto;max-width:none}
+  #panel p.long{display:none}
+  #rec{top:8px;right:8px;left:8px;width:auto;max-width:none}
+  #sv{right:8px;left:8px;width:auto;bottom:auto;top:8px;height:40vh}
+}
+</style></head>
+<body>
+<div id="globe"></div>
+
+<div id="panel" class="card">
+  <h1>Explore in 3D</h1>
+  <p class="long">Google's photorealistic 3D view of the area, with the group's records as pins. Drag to move, right-drag or two fingers to tilt, scroll or pinch to zoom. Tap a pin for its card and Street View.</p>
+  <div id="search"></div>
+  <label><input type="checkbox" id="t-rec" checked> Our records</label>
+  <label><input type="checkbox" id="t-area" checked> The test area</label>
+  <div class="row"><button class="btn" id="home" type="button">Back to the area</button><a href="/">2D map</a><a href="/add/">Add a record</a></div>
+</div>
+
+<div id="rec" class="card" role="dialog" aria-label="Record"><button class="x" type="button" aria-label="Close">×</button><div class="body"></div></div>
+<div id="sv" class="card" aria-label="Street View"><button class="x" type="button" aria-label="Close Street View">×</button><div class="pano"></div></div>
+<div id="msg" class="card"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/cesium@1.123.0/Build/Cesium/Cesium.js"></script>
+<script>
+(async () => {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+  const say = html => { $('msg').innerHTML = html; $('msg').style.display = 'block'; };
+
+  // Settings and key
+  const cfg = await fetch('/config/site.json').then(r => r.json()).catch(() => ({}));
+  const area = cfg.area || {}; const centre = area.centre || [175.6195, -40.3498];
+  const cats = Object.fromEntries((cfg.categories || []).map(c => [c.id, c.colour]));
+  const tasks = Object.fromEntries((cfg.tasks || []).map(t => [t.id, t]));
+  const kr = await fetch('/api/gkey').then(r => r.json()).catch(() => ({}));
+  if (!kr.key) { say('<b>Google Maps isn’t set up yet.</b><br>Add the key as the Cloudflare variable <code>GOOGLE_MAPS_KEY</code>. The <a href="/">2D map</a> works without it.'); return; }
+  const KEY = kr.key;
+
+  // 3D globe with Google Photorealistic 3D Tiles (Map Tiles API). Google's logo and data credits show bottom left.
+  Cesium.GoogleMaps.defaultApiKey = KEY;
+  const viewer = new Cesium.Viewer('globe', {
+    globe:false, baseLayerPicker:false, geocoder:false, homeButton:false, sceneModePicker:false, navigationHelpButton:false,
+    timeline:false, animation:false, fullscreenButton:false, infoBox:false, selectionIndicator:false, requestRenderMode:true
+  });
+  viewer.scene.skyAtmosphere.show = true;
+  try {
+    const tiles = await Cesium.createGooglePhotorealistic3DTileset();
+    viewer.scene.primitives.add(tiles);
+  } catch (e) {
+    say('<b>The 3D view couldn’t load.</b><br>Check that the Map Tiles API is turned on for the key. (' + esc(e.message) + ')'); return;
+  }
+  const home = (instant) => {
+    const opts = { destination: Cesium.Cartesian3.fromDegrees(centre[0], centre[1] - 0.0105, 650),
+      orientation: { heading: 0, pitch: Cesium.Math.toRadians(-38), roll: 0 } };
+    instant ? viewer.camera.setView(opts) : viewer.camera.flyTo({ ...opts, duration: 1.6 });
+  };
+  home(true);
+  $('home').onclick = () => home(false);
+
+  // The test area outline
+  const areaEnt = [];
+  if (Array.isArray(area.square) && area.square.length > 2) {
+    const ring = [...area.square, area.square[0]].flat();
+    areaEnt.push(viewer.entities.add({ polyline: { positions: Cesium.Cartesian3.fromDegreesArray(ring), width: 3, clampToGround: true,
+      material: Cesium.Color.fromCssColorString('#FCFDFB').withAlpha(.9) } }));
+  }
+  $('t-area').onchange = e => { areaEnt.forEach(x => x.show = e.target.checked); viewer.scene.requestRender(); };
+
+  // The group's records
+  const recEnt = []; let fc = { features: [] };
+  try { fc = await fetch('/api/annotations').then(r => r.ok ? r.json() : { features: [] }); } catch {}
+  for (const f of fc.features || []) {
+    const p = f.properties || {}, g = f.geometry || {}; if (!g.coordinates) continue;
+    const col = Cesium.Color.fromCssColorString(cats[p.cat] || '#b8334a');
+    let ent;
+    if (g.type === 'Point') {
+      ent = viewer.entities.add({ position: Cesium.Cartesian3.fromDegrees(g.coordinates[0], g.coordinates[1]),
+        point: { pixelSize: 13, color: col, outlineColor: Cesium.Color.WHITE, outlineWidth: 2,
+          heightReference: Cesium.HeightReference.CLAMP_TO_GROUND, disableDepthTestDistance: Number.POSITIVE_INFINITY } });
+    } else {
+      const coords = g.type === 'Polygon' ? [...g.coordinates[0]] : g.coordinates;
+      ent = viewer.entities.add({ polyline: { positions: Cesium.Cartesian3.fromDegreesArray(coords.flat()), width: 4, clampToGround: true, material: col } });
+    }
+    ent._rec = f; recEnt.push(ent);
+  }
+  $('t-rec').onchange = e => { recEnt.forEach(x => x.show = e.target.checked); viewer.scene.requestRender(); };
+
+  // Record card
+  const gLinks = ll => { const q = (+ll[1]).toFixed(6) + ',' + (+ll[0]).toFixed(6);
+    return `<span class="glinks"><a href="https://www.google.com/maps/search/?api=1&query=${q}" target="_blank" rel="noopener">Google Maps</a><a href="https://www.google.com/maps/dir/?api=1&destination=${q}&travelmode=walking" target="_blank" rel="noopener">Directions</a></span>`; };
+  const anchor = g => g.type === 'Point' ? g.coordinates : g.type === 'LineString' ? g.coordinates[0] : g.coordinates[0][0];
+  function showRec(f) {
+    const p = f.properties || {}, m = p.meta || {}, t = tasks[m.task], photos = Array.isArray(p.photos) ? p.photos : [];
+    let h = `<span class="src">${esc(t ? t.label : p.cat)}</span><b class="t">${esc(p.title)}</b>`;
+    if (t && m.fields) {
+      const rows = t.fields.filter(fd => m.fields[fd.id] !== undefined && fd.id !== 'title').map(fd => {
+        let v = m.fields[fd.id]; if (v && typeof v === 'object') v = v.label + (v.sci ? ` (${v.sci})` : ''); if (v === true) v = 'Yes'; if (v === false) v = 'No';
+        return `<dt>${esc(fd.label)}</dt><dd>${esc(v)}</dd>`; }).join('');
+      if (rows) h += `<dl>${rows}</dl>`;
+    }
+    if (p.note) h += esc(p.note) + '<br>';
+    if (photos.length) h += `<span class="pp">${photos.map(ph => `<a href="${esc(ph.url)}" target="_blank" rel="noopener"><img src="${esc(ph.url)}" alt="${esc(ph.caption || p.title)}"></a>`).join('')}</span>`;
+    const when = p.added ? new Date(p.added).toLocaleDateString('en-NZ', { day:'numeric', month:'short', year:'numeric' }) : '';
+    h += `<span class="mm">${[p.by ? 'By ' + esc(p.by) : '', when].filter(Boolean).join(' · ')}</span>`;
+    const ll = anchor(f.geometry);
+    h += `<div style="margin-top:8px"><button class="btn" type="button" id="sv-go">Street View here</button></div>` + gLinks(ll);
+    $('rec').querySelector('.body').innerHTML = h; $('rec').style.display = 'block';
+    $('sv-go').onclick = () => openStreetView(ll);
+  }
+  $('rec').querySelector('.x').onclick = () => { $('rec').style.display = 'none'; };
+
+  const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+  handler.setInputAction(ev => {
+    const picked = viewer.scene.pick(ev.position);
+    const ent = picked && picked.id; if (ent && ent._rec) showRec(ent._rec);
+  }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+  // Google Maps JavaScript API: Street View and place search (loaded once, on this page only)
+  const gm = new Promise((ok, fail) => {
+    window.__gmReady = ok;
+    const s = document.createElement('script');
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(KEY)}&v=weekly&loading=async&callback=__gmReady&region=NZ&language=en`;
+    s.onerror = () => fail(new Error('Google Maps could not load')); document.head.appendChild(s);
+  });
+
+  let pano = null;
+  async function openStreetView(ll) {
+    await gm; const { StreetViewPanorama, StreetViewService } = await google.maps.importLibrary('streetView');
+    const svc = new StreetViewService();
+    try {
+      const { data } = await svc.getPanorama({ location: { lat: ll[1], lng: ll[0] }, radius: 60, source: google.maps.StreetViewSource.OUTDOOR });
+      $('sv').style.display = 'block';
+      const pos = data.location.latLng;
+      if (!pano) pano = new StreetViewPanorama($('sv').querySelector('.pano'), { addressControl:false, fullscreenControl:true, motionTracking:false });
+      pano.setPano(data.location.pano);
+      // Face the record from where the panorama was taken
+      const dLat = ll[1] - pos.lat(), dLng = (ll[0] - pos.lng()) * Math.cos(ll[1] * Math.PI / 180);
+      pano.setPov({ heading: (Math.atan2(dLng, dLat) * 180 / Math.PI + 360) % 360, pitch: 0 });
+      pano.setVisible(true);
+    } catch {
+      $('sv').style.display = 'none';
+      alertBox('No Street View within 60 m of this spot.');
+    }
+  }
+  $('sv').querySelector('.x').onclick = () => { $('sv').style.display = 'none'; };
+  function alertBox(t) { const d = document.createElement('span'); d.className = 'mm'; d.style.color = 'var(--warn)'; d.textContent = t; $('rec').querySelector('.body').appendChild(d); }
+
+  // Place search (Places API, New). Results move the 3D view; nothing is stored.
+  (async () => {
+    try {
+      await gm; const { PlaceAutocompleteElement } = await google.maps.importLibrary('places');
+      const ac = new PlaceAutocompleteElement({ includedRegionCodes: ['nz'], locationBias: { center: { lat: centre[1], lng: centre[0] }, radius: 20000 } });
+      ac.setAttribute('placeholder', 'Search for a place');
+      $('search').appendChild(ac);
+      const go = async place => {
+        await place.fetchFields({ fields: ['displayName', 'location', 'viewport'] });
+        const L = place.location; if (!L) return;
+        viewer.camera.flyTo({ destination: Cesium.Cartesian3.fromDegrees(L.lng(), L.lat() - 0.006, 450),
+          orientation: { heading: 0, pitch: Cesium.Math.toRadians(-40), roll: 0 }, duration: 2 });
+      };
+      ac.addEventListener('gmp-select', ev => ev.placePrediction && go(ev.placePrediction.toPlace()));
+      ac.addEventListener('gmp-placeselect', ev => ev.place && go(ev.place));
+    } catch { $('search').innerHTML = '<p>Place search isn’t available (check the Places API is turned on).</p>'; }
+  })();
+})();
+</script>
+</body></html>

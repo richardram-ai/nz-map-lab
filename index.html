@@ -182,6 +182,8 @@ footer{font-size:.78rem;color:var(--muted);border-top:1px solid var(--rule);padd
 .phonebox{display:flex;gap:10px;align-items:center;border:1px solid var(--rule);padding:8px 10px;font-size:.82rem}
 .phonebox #qr{flex:none;width:84px;height:84px;background:#fff;padding:4px}
 .phonebox #qr img,.phonebox #qr canvas{width:76px!important;height:76px!important}
+.maplibregl-popup-content .glinks{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:6px;padding-top:6px;border-top:1px solid #E1E8DC;font-size:.74rem}
+.maplibregl-popup-content .glinks a{color:#56664D;text-decoration:none;white-space:nowrap}.maplibregl-popup-content .glinks a::after{content:' ↗';font-size:.9em}
 .maplibregl-popup-content .src{color:#5a6862;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em}
 .maplibregl-ctrl-attrib{font-size:10px}
 
@@ -615,6 +617,11 @@ function popupHTML(id,p){
   }
   return `<span class="src">${src}</span><b>${esc(b)}</b>${x}`;
 }
+// Free Google Maps links (Maps URLs: no key, no cost). Opens Google Maps in a new tab or the Google Maps app.
+function gLinks(ll){
+  const q=(+ll[1]).toFixed(6)+','+(+ll[0]).toFixed(6);
+  return `<span class="glinks"><a href="https://www.google.com/maps/search/?api=1&query=${q}" target="_blank" rel="noopener">Google Maps</a><a href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${q}" target="_blank" rel="noopener">Street View</a><a href="https://www.google.com/maps/dir/?api=1&destination=${q}&travelmode=walking" target="_blank" rel="noopener">Directions</a></span>`;
+}
 function annPopup(p){
   const photos=Array.isArray(p.photos)?p.photos:[]; const m=(p.meta&&typeof p.meta==='object')?p.meta:{};
   const when=p.added?new Date(p.added).toLocaleString('en-NZ',{day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'}):'';
@@ -641,6 +648,7 @@ map.on('click',e=>{
   const f=fs[0]; let html;
   if(f.layer.id.startsWith('ann-')){const full=(ANN.features.find(a=>a.properties.id===f.properties.id)||{properties:f.properties}).properties; html=annPopup(full); lastOpen={id:full.id,title:full.title}; updateEmbed()}
   else html=popupHTML(f.layer.id,f.properties);
+  html+=gLinks(f.geometry&&f.geometry.type==='Point'?f.geometry.coordinates:[e.lngLat.lng,e.lngLat.lat]);
   new maplibregl.Popup({maxWidth:'280px'}).setLngLat(e.lngLat).setHTML(html).addTo(map);
 });
 map.on('mousemove',e=>{ if(drawMode){map.getCanvas().style.cursor='crosshair';return}
