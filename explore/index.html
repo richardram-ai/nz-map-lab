@@ -16,6 +16,10 @@ html,body{margin:0;height:100%;background:#E1E8DC;font-family:var(--font);color:
 #panel .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;font-size:.8rem}
 #panel .row a{color:var(--accent)}
 #search{margin:6px 0 8px}
+#panel .dot{display:inline-block;width:9px;height:9px;border-radius:50%;border:1.5px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.25)}
+#zoom{position:absolute;right:12px;bottom:44px;z-index:2;display:flex;flex-direction:column;overflow:hidden}
+#zoom button{font:inherit;font-size:1.2rem;width:36px;height:36px;border:0;background:var(--card);color:var(--ink);cursor:pointer}
+#zoom button+button{border-top:1px solid var(--rule)} #zoom button:hover{background:var(--sage)}
 #search gmp-place-autocomplete{width:100%}
 #rec{position:absolute;right:12px;top:12px;width:290px;max-width:calc(100% - 24px);padding:10px 12px;z-index:2;box-sizing:border-box;font-size:.84rem;display:none}
 #rec .src{display:block;color:var(--muted);font-size:.7rem;text-transform:uppercase;letter-spacing:.06em}
@@ -45,15 +49,19 @@ html,body{margin:0;height:100%;background:#E1E8DC;font-family:var(--font);color:
 
 <div id="panel" class="card">
   <h1>Explore in 3D</h1>
-  <p class="long">Google's photorealistic 3D view of the area, with the group's records as pins. Drag to move, right-drag or two fingers to tilt, scroll or pinch to zoom. Tap a pin for its card and Street View.</p>
+  <p class="long">Google's photorealistic 3D view of the area, with the group's records as pins. Drag to move, Ctrl-drag to tilt and turn, scroll, pinch or use + − to zoom. Tap a pin for its card and Street View.</p>
   <div id="search"></div>
   <label><input type="checkbox" id="t-rec" checked> Our records</label>
+  <label><input type="checkbox" id="t-trees" checked> <span class="dot" style="background:#3f8f56"></span>Mapped trees (OpenStreetMap)</label>
+  <label><input type="checkbox" id="t-notable" checked> <span class="dot" style="background:#1d5e31;width:12px;height:12px"></span>Notable trees (council)</label>
+  <label><input type="checkbox" id="t-inat"> <span class="dot" style="background:#28699a"></span>Species sightings (iNaturalist)</label>
   <label><input type="checkbox" id="t-area" checked> The test area</label>
   <div class="row"><button class="btn" id="home" type="button">Back to the area</button><a href="/">2D map</a><a href="/add/">Add a record</a></div>
 </div>
 
 <div id="rec" class="card" role="dialog" aria-label="Record"><button class="x" type="button" aria-label="Close">×</button><div class="body"></div></div>
 <div id="sv" class="card" aria-label="Street View"><button class="x" type="button" aria-label="Close Street View">×</button><div class="pano"></div></div>
+<div id="zoom" class="card"><button type="button" id="z-in" aria-label="Zoom in">+</button><button type="button" id="z-out" aria-label="Zoom out">−</button></div>
 <div id="msg" class="card"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/cesium@1.123.0/Build/Cesium/Cesium.js"></script>
@@ -158,11 +166,57 @@ html,body{margin:0;height:100%;background:#E1E8DC;font-family:var(--font);color:
   }
   $('rec').querySelector('.x').onclick = () => { $('rec').style.display = 'none'; };
 
+  // Public layers from the 2D map: OpenStreetMap trees, council notable trees, iNaturalist sightings
+  const INATC = { Aves:'#28699a', Plantae:'#2c7a4b', Insecta:'#c47d14', Fungi:'#8a5a3c', Arachnida:'#6a4c9c', Reptilia:'#b8334a' };
+  const layerDefs = [
+    { id:'trees', file:'osm_trees', size:8, colour:() => '#3f8f56' },
+    { id:'notable', file:'pncc_notable_trees', size:13, colour:() => '#1d5e31' },
+    { id:'inat', file:'inat_obs', size:8, colour:p => INATC[p.group] || '#7d8883' },
+  ];
+  const layerEnts = {};
+  for (const L of layerDefs) {
+    layerEnts[L.id] = [];
+    fetch('/data/' + L.file + '.geojson').then(r => r.json()).then(fc => {
+      for (const f of fc.features || []) {
+        if (!f.geometry || f.geometry.type !== 'Point') continue;
+        const ent = viewer.entities.add({ show: $('t-' + L.id).checked, position: Cesium.Cartesian3.fromDegrees(f.geometry.coordinates[0], f.geometry.coordinates[1]),
+          point: { pixelSize: L.size, color: Cesium.Color.fromCssColorString(L.colour(f.properties || {})), outlineColor: Cesium.Color.WHITE, outlineWidth: 1.5,
+            heightReference: Cesium.HeightReference.CLAMP_TO_GROUND, disableDepthTestDistance: Number.POSITIVE_INFINITY,
+            scaleByDistance: new Cesium.NearFarScalar(300, 1.3, 4000, 0.6) } });
+        ent._layer = L.id; ent._f = f; layerEnts[L.id].push(ent);
+      }
+      viewer.scene.requestRender();
+    }).catch(() => {});
+    $('t-' + L.id).onchange = e => { layerEnts[L.id].forEach(x => x.show = e.target.checked); viewer.scene.requestRender(); };
+  }
+  function showFeature(ent) {
+    const p = ent._f.properties || {}, ll = ent._f.geometry.coordinates; let h = '';
+    if (ent._layer === 'inat') h = `<span class="src">Species sighting · iNaturalist</span><b class="t">${esc(p.name)}</b><i>${esc(p.sci)}</i><br>${esc(p.date)} · ${p.grade === 'research' ? 'Research grade' : p.grade === 'needs_id' ? 'Needs ID' : 'Casual'}${p.obscured ? '<br>Location blurred' : ''}<br><a href="${esc(p.url)}" target="_blank" rel="noopener">Open on iNaturalist</a>`;
+    else if (ent._layer === 'notable') h = `<span class="src">Notable tree · Palmerston North City Council</span><b class="t">${esc(p.COMMON_NAME)}</b><i>${esc(p.BOTANICAL_NAME)}</i>`;
+    else h = `<span class="src">Mapped tree · OpenStreetMap</span><b class="t">Tree</b>${p.species ? esc(p.species) : 'Species not recorded'}<br><a href="${esc(p.osm)}" target="_blank" rel="noopener">Edit on OpenStreetMap</a>`;
+    h += `<div style="margin-top:8px"><button class="btn" type="button" id="sv-go">Street View here</button></div>` + gLinks(ll);
+    $('rec').querySelector('.body').innerHTML = h; $('rec').style.display = 'block';
+    $('sv-go').onclick = () => openStreetView(ll);
+  }
+
   const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
   handler.setInputAction(ev => {
     const picked = viewer.scene.pick(ev.position);
-    const ent = picked && picked.id; if (ent && ent._rec) showRec(ent._rec);
+    const ent = picked && picked.id; if (!ent) return;
+    if (ent._rec) showRec(ent._rec); else if (ent._f) showFeature(ent);
   }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+  // Zoom: + and − buttons, and a laptop trackpad pinch (which the browser sends as Ctrl + scroll)
+  const ctl = viewer.scene.screenSpaceCameraController;
+  ctl.zoomEventTypes = [Cesium.CameraEventType.WHEEL, Cesium.CameraEventType.PINCH, Cesium.CameraEventType.RIGHT_DRAG,
+    { eventType: Cesium.CameraEventType.WHEEL, modifier: Cesium.KeyboardEventModifier.CTRL }];
+  ctl.tiltEventTypes = [Cesium.CameraEventType.MIDDLE_DRAG, Cesium.CameraEventType.PINCH,
+    { eventType: Cesium.CameraEventType.LEFT_DRAG, modifier: Cesium.KeyboardEventModifier.CTRL },
+    { eventType: Cesium.CameraEventType.RIGHT_DRAG, modifier: Cesium.KeyboardEventModifier.CTRL }];
+  viewer.scene.canvas.addEventListener('wheel', e => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });  // stop the page zooming instead
+  const zoomBy = f => { const h = viewer.camera.positionCartographic.height; viewer.camera.zoomIn(Math.max(20, h * f)); viewer.scene.requestRender(); };
+  $('z-in').onclick = () => zoomBy(0.4);
+  $('z-out').onclick = () => { const h = viewer.camera.positionCartographic.height; viewer.camera.zoomOut(Math.max(40, h * 0.6)); viewer.scene.requestRender(); };
 
   // Google Maps JavaScript API: Street View and place search (loaded once, on this page only)
   const gm = new Promise((ok, fail) => {
