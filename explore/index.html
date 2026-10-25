@@ -86,7 +86,7 @@ html,body{margin:0;height:100%;background:#E1E8DC;font-family:var(--font);color:
     say('<b>The 3D view couldn’t load.</b><br>Check that the Map Tiles API is turned on for the key. (' + esc(e.message) + ')'); return;
   }
   const home = (instant) => {
-    const opts = { destination: Cesium.Cartesian3.fromDegrees(centre[0], centre[1] - 0.0105, 650),
+    const opts = { destination: Cesium.Cartesian3.fromDegrees(centre[0], centre[1] - 0.0082, 720),
       orientation: { heading: 0, pitch: Cesium.Math.toRadians(-38), roll: 0 } };
     instant ? viewer.camera.setView(opts) : viewer.camera.flyTo({ ...opts, duration: 1.6 });
   };
@@ -97,8 +97,8 @@ html,body{margin:0;height:100%;background:#E1E8DC;font-family:var(--font);color:
   const areaEnt = [];
   if (Array.isArray(area.square) && area.square.length > 2) {
     const ring = [...area.square, area.square[0]].flat();
-    areaEnt.push(viewer.entities.add({ polyline: { positions: Cesium.Cartesian3.fromDegreesArray(ring), width: 3, clampToGround: true,
-      material: Cesium.Color.fromCssColorString('#FCFDFB').withAlpha(.9) } }));
+    areaEnt.push(viewer.entities.add({ polyline: { positions: Cesium.Cartesian3.fromDegreesArray(ring), width: 4, clampToGround: true,
+      material: Cesium.Color.fromCssColorString('#F2C14E') } }));
   }
   $('t-area').onchange = e => { areaEnt.forEach(x => x.show = e.target.checked); viewer.scene.requestRender(); };
 
