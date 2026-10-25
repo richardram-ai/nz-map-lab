@@ -93,12 +93,20 @@ html,body{margin:0;height:100%;background:#E1E8DC;font-family:var(--font);color:
   home(true);
   $('home').onclick = () => home(false);
 
-  // The test area outline
+  // The test area outline: heights sampled from the 3D tiles so the line sits on the ground, and shows faintly through buildings
   const areaEnt = [];
   if (Array.isArray(area.square) && area.square.length > 2) {
-    const ring = [...area.square, area.square[0]].flat();
-    areaEnt.push(viewer.entities.add({ polyline: { positions: Cesium.Cartesian3.fromDegreesArray(ring), width: 4, clampToGround: true,
-      material: Cesium.Color.fromCssColorString('#F2C14E') } }));
+    const ring = [...area.square, area.square[0]], pts = [];
+    for (let k = 0; k < ring.length - 1; k++) for (let t = 0; t < 30; t++) {
+      const a = ring[k], b = ring[k + 1]; pts.push(Cesium.Cartographic.fromDegrees(a[0] + (b[0] - a[0]) * t / 30, a[1] + (b[1] - a[1]) * t / 30)); }
+    pts.push(Cesium.Cartographic.fromDegrees(ring[0][0], ring[0][1]));
+    const col = Cesium.Color.fromCssColorString('#F2C14E');
+    viewer.scene.sampleHeightMostDetailed(pts).then(hs => {
+      const known = hs.filter(c => c && Number.isFinite(c.height)).map(c => c.height); const fallback = known.length ? Math.min(...known) : 50;
+      const pos = hs.map(c => Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, (Number.isFinite(c.height) ? c.height : fallback) + 2));
+      areaEnt.push(viewer.entities.add({ show: $('t-area').checked, polyline: { positions: pos, width: 4, material: col, depthFailMaterial: col.withAlpha(.45) } }));
+      viewer.scene.requestRender();
+    }).catch(() => {});
   }
   $('t-area').onchange = e => { areaEnt.forEach(x => x.show = e.target.checked); viewer.scene.requestRender(); };
 
