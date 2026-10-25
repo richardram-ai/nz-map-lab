@@ -78,7 +78,7 @@ html,body{margin:0;height:100%;background:#E1E8DC;font-family:var(--font);color:
     globe:false, baseLayerPicker:false, geocoder:false, homeButton:false, sceneModePicker:false, navigationHelpButton:false,
     timeline:false, animation:false, fullscreenButton:false, infoBox:false, selectionIndicator:false, requestRenderMode:true
   });
-  viewer.scene.skyAtmosphere.show = true;
+  viewer.scene.skyAtmosphere.show = true; window.__viewer = viewer;
   try {
     const tiles = await Cesium.createGooglePhotorealistic3DTileset();
     viewer.scene.primitives.add(tiles);
@@ -103,12 +103,15 @@ html,body{margin:0;height:100%;background:#E1E8DC;font-family:var(--font);color:
       const a = ring[k], b = ring[k + 1]; pts.push(Cesium.Cartographic.fromDegrees(a[0] + (b[0] - a[0]) * t / 30, a[1] + (b[1] - a[1]) * t / 30)); }
     pts.push(Cesium.Cartographic.fromDegrees(ring[0][0], ring[0][1]));
     const col = Cesium.Color.fromCssColorString('#F2C14E');
-    viewer.scene.sampleHeightMostDetailed(pts).then(hs => {
-      const known = hs.filter(c => c && Number.isFinite(c.height)).map(c => c.height); const fallback = known.length ? Math.min(...known) : 50;
-      const pos = hs.map(c => Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, (Number.isFinite(c.height) ? c.height : fallback) + 2));
-      areaEnt.push(viewer.entities.add({ show: $('t-area').checked, polyline: { positions: pos, width: 4, material: col, depthFailMaterial: col.withAlpha(.45) } }));
+    // Drawn first at an estimated ground height (flat Manawatū plain, about 50 m above the ellipsoid), then refined from the 3D surface
+    const line = viewer.entities.add({ polyline: { positions: pts.map(c => Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, 52)), width: 4, material: col, depthFailMaterial: col.withAlpha(.45) } });
+    areaEnt.push(line);
+    setTimeout(() => viewer.scene.sampleHeightMostDetailed(pts.map(c => c.clone()), [line]).then(hs => {
+      const known = hs.filter(c => c && Number.isFinite(c.height)).map(c => c.height); if (!known.length) return;
+      const fallback = Math.min(...known);
+      line.polyline.positions = hs.map(c => Cesium.Cartesian3.fromRadians(c.longitude, c.latitude, (Number.isFinite(c.height) ? c.height : fallback) + 2));
       viewer.scene.requestRender();
-    }).catch(() => {});
+    }).catch(e => console.warn('Outline heights:', e && e.message)), 4000);
   }
   $('t-area').onchange = e => { areaEnt.forEach(x => x.show = e.target.checked); viewer.scene.requestRender(); };
 
