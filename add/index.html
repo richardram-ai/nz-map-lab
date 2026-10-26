@@ -283,6 +283,7 @@ function deviceLabel(){
 // Aerial tiles: the latest year in the settings (the tile function adds the LINZ key).
 function latestYear(a){ const y=Object.keys((a&&a.linz_layers)||{}).map(Number).sort((p,q)=>p-q); return y.length?y[y.length-1]:2024 }
 function aerTiles(a){ return location.origin+'/linz/aerial/{z}/{x}/{y}.png?year='+latestYear(a) }
+let aerUrl=aerTiles(CA);   // the tile address the map was started with; replaced once the settings load
 const map = new maplibregl.Map({
   container:'map', center:CONFIG.centre, zoom:CA ? (CA.zoom||16.3) : 5, attributionControl:{compact:true},
   maxBounds:CONFIG.area ? [[CONFIG.area.west,CONFIG.area.south],[CONFIG.area.east,CONFIG.area.north]] : undefined,
@@ -524,7 +525,7 @@ async function loadSettings(){
   if(!SETTINGS){ $('fields').innerHTML='<p class="msg err">The organisation’s settings couldn’t be loaded. Connect to the internet once and reload this page.</p>'; return }
   const a=SETTINGS.area; if(a&&a.bounds){ const first=!CONFIG.area; CONFIG.area=a.bounds; CONFIG.square=a.square; CONFIG.centre=a.centre;
     map.setMaxBounds([[a.bounds.west,a.bounds.south],[a.bounds.east,a.bounds.north]]); if(!pos||first) map.jumpTo({center:a.centre,zoom:a.zoom||16.3});
-    const setAer=()=>{ const src=map.getSource('aer'); if(src&&src.setTiles&&src.tiles&&src.tiles[0]!==aerTiles(a)) src.setTiles([aerTiles(a)]) }; map.loaded()?setAer():map.once('load',setAer);
+    const setAer=()=>{ const src=map.getSource('aer'); if(src&&src.setTiles&&aerUrl!==aerTiles(a)){ aerUrl=aerTiles(a); src.setTiles([aerUrl]) } }; map.loaded()?setAer():map.once('load',setAer);
     renderOffline();
     const upd=()=>map.getSource('sq')&&map.getSource('sq').setData(squareData()); map.loaded()?upd():map.once('load',upd);
     if(!pos) marker.setLngLat(a.centre) }
