@@ -411,11 +411,13 @@ function idBox(fd){
     const name=it?itemLabel(it):(t.common||t.sci);
     return `<button type="button" class="sug" data-pick="${fd.id}" data-i="${i}" aria-pressed="${st.chosen===i}"><b>${esc(name)}</b><span class="pc">${t.p<.01?'&lt;1':Math.round(t.p*100)}%</span><small>${esc(t.sci)}${it?' · <span class="onlist">on your list</span>':''}${t.mpi?' · <span class="mpi">MPI '+(t.mpi.includes('n')?'notifiable':'unwanted')+'</span>':''}</small></button>` }).join('');
   const top=st.top[0], warn=st.top.find(t=>t.mpi&&t.p>=.2);
-  return `<div class="idbox"><span class="lab" style="margin:0">Is it one of these?</span>${rows}
+  const changed=!photos.length||photos[0].url!==st.photoUrl;
+  const again=`<div class="row"><button type="button" class="btn${changed?' primary':''}" data-sug="${fd.id}">${changed?'Suggest again from photo 1':'Check again'}</button><span class="hint">${changed?(photos.length?'Photo 1 has changed since these suggestions.':'The photo these were based on has been removed.'):'Uses photo 1.'}</span></div>`;
+  return `<div class="idbox">${changed?again:''}<span class="lab" style="margin:0">Is it one of these?</span>${rows}
     <button type="button" class="sug" data-pick="${fd.id}" data-i="none" aria-pressed="${st.chosen==='none'}"><b>None of these</b></button>
     ${top.p<.9?'<span class="hint">The helper isn’t sure. If you pick one, the record will still be checked.</span>':''}
     ${warn?`<span class="needsid">${esc(warn.common||warn.sci)} is listed by MPI as ${warn.mpi.includes('n')?'notifiable':'an unwanted organism'}. If that’s what it is, <a href="https://www.mpi.govt.nz/biosecurity/how-to-find-report-and-prevent-pests-and-diseases/report-a-pest-or-disease/" target="_blank" rel="noopener">report it to MPI</a>.</span>`:''}
-    ${credit}</div>`;
+    ${changed?'':again}${credit}</div>`;
 }
 async function runSuggest(fid){
   const fd=task&&task.fields.find(f=>f.id===fid); if(!fd) return;
@@ -425,8 +427,8 @@ async function runSuggest(fid){
   try{
     await NZID.load((f,t)=>{ SUG[fid].frac=f; SUG[fid].msg=t; const m=document.getElementById('sugmsg-'+fid), b=document.getElementById('sugbar-'+fid); if(m) m.textContent=t; if(b) b.value=f });
     SUG[fid]={status:'running',msg:'Looking at the photo…'}; renderFields();
-    const r=await NZID.identify(photos[0].blob);
-    SUG[fid]={status:'done',top:r.top,ms:r.ms,backend:r.backend,chosen:null}; renderFields();
+    const ph=photos[0], r=await NZID.identify(ph.blob);
+    SUG[fid]={status:'done',top:r.top,ms:r.ms,backend:r.backend,chosen:null,photoUrl:ph.url}; renderFields();
   }catch(e){ SUG[fid]={status:'error',msg:navigator.onLine?'The helper couldn’t run on this phone: '+(e.message||e):'Connect to the internet once to download the identification helper.'}; renderFields() }
 }
 function pickSuggestion(fid,i){
@@ -530,7 +532,7 @@ function renderPhotos(){
   $('usephotoloc').hidden=!withLoc;
   if(typeof updatePhotoReq==='function') updatePhotoReq();
 }
-$('photos').addEventListener('click',e=>{const x=e.target.dataset.x; if(x!==undefined){URL.revokeObjectURL(photos[+x].url); photos.splice(+x,1); renderPhotos()}});
+$('photos').addEventListener('click',e=>{const x=e.target.dataset.x; if(x!==undefined){URL.revokeObjectURL(photos[+x].url); photos.splice(+x,1); renderPhotos(); if(task&&Object.values(SUG).some(v=>v.status==='done')) renderFields()}});
 $('photos').addEventListener('input',e=>{const c=e.target.dataset.cap; if(c!==undefined) photos[+c].caption=e.target.value});
 ['cam','gal'].forEach(id=>$(id).addEventListener('change',e=>{addFiles([...e.target.files]); e.target.value=''}));
 $('usephotoloc').addEventListener('click',()=>{const p=photos.find(p=>p.lat!=null); if(!p) return; follow=false; setPos({lon:p.lon,lat:p.lat,source:'photo',accuracy:null},{fly:true})});
