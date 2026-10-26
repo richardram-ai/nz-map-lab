@@ -7,7 +7,7 @@
   "colour": "#2c7a4b"
  },
  "area": {
-  "_about": "bounds: the whole forest park plus a margin (records must fall inside; LINZ tiles are served only inside it). boundary: DOC's park outline. focus: the detailed block at the end of Kashmir Road, where the aerial timeline, LiDAR and offline download apply; 'square' is the same box, for code that expects it. Replace the focus box with the group's real work area when it is drawn.",
+  "_about": "bounds: the whole forest park plus a margin (records must fall inside; LINZ tiles are served only inside it). boundary: DOC's park outline. focus: the detailed block at the end of Kashmir Road, where the aerial timeline, LiDAR and offline download apply; 'square' is the same box, for code that expects it. Replace the focus box with the group's real work area when it is drawn. ground_m: a rough ground height for the 3D view (refined from the 3D tiles).",
   "bounds": {
    "west": 175.8,
    "south": -40.3,
@@ -98,7 +98,8 @@
   "offline": {
    "_about": "The phone form's 'Save the map for offline use' button downloads aerial tiles for the focus block up to this zoom.",
    "max_zoom": 17
-  }
+  },
+  "ground_m": 550
  },
  "categories": [
   {
