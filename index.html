@@ -518,7 +518,7 @@ function tryVector(){
   fetch('https://tiles.openfreemap.org/styles/positron').then(r=>r.json()).then(st=>{if(baseMode==='ofm'){map.setStyle(st,{diff:false})}}).catch(()=>showBlocked());
 }
 let blockedTimer;
-function showBlocked(){clearTimeout(blockedTimer);blockedTimer=setTimeout(()=>{tilenote.textContent='Map tiles could not load here. They need the hosted site (the tile function adds the LINZ key).';tilenote.hidden=false},600)}
+function showBlocked(){clearTimeout(blockedTimer);blockedTimer=setTimeout(()=>{tilenote.textContent='Map tiles could not load. Either the LINZ key isn’t set up for this site yet (Cloudflare variable LINZ_KEY) or LINZ is not responding.';tilenote.hidden=false},600)}
 map.on('error',e=>{ const st=e&&e.error&&e.error.status; if(st===502||st===503) showBlocked() });   // missing key or LINZ down; 403/404 at the edges are normal
 document.querySelectorAll('input[name=base]').forEach(r=>r.addEventListener('change',()=>setBase(r.value)));
 
