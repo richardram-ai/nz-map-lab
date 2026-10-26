@@ -6,7 +6,7 @@
  * Deleting an annotation marks the row "yes" in the deleted column rather than removing it, so nothing is lost.
  * The review screen updates a record's title and details columns in place (action 'update').
  * Deleted records are moved to the Deleted tab so the Annotations tab only holds live records.
- * Backups: run installBackupTrigger() once for a weekly dated copy of the spreadsheet in the "NZ Map Lab backups" folder.
+ * Backups: run installBackupTrigger() once for a weekly dated copy of the spreadsheet in the "Ruahine Map Lab backups" folder.
  * Photos: the Cloudflare function sends a copy of each photo here; it is saved to the "NZ Map Lab photos"
  * Drive folder and listed on the Photos tab. The map itself shows photos from Cloudflare R2.
  */
@@ -15,7 +15,7 @@ const SHEET_NAME = 'Annotations';
 const HEADERS = ['id', 'title', 'category', 'note', 'added_by', 'added', 'geometry_type', 'geometry', 'deleted', 'photos', 'details'];
 const PHOTO_SHEET = 'Photos';
 const PHOTO_HEADERS = ['photo_id', 'drive_link', 'taken', 'lat', 'lon', 'added_by', 'uploaded'];
-const PHOTO_FOLDER = 'NZ Map Lab photos';
+const PHOTO_FOLDER = 'Ruahine Map Lab photos';
 
 function sheet_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -72,16 +72,18 @@ function moveDeleted_(sh) {
 /** Run once from the editor to move rows already marked deleted. */
 function tidyDeleted() { const n = moveDeleted_(sheet_()); Logger.log(n + ' deleted rows moved to the Deleted tab'); }
 
-/** Weekly backup: a dated copy of this spreadsheet in the "NZ Map Lab backups" Drive folder, keeping the last 12.
+/** Weekly backup: a dated copy of this spreadsheet in the "Ruahine Map Lab backups" Drive folder, keeping the last 12.
  *  Run installBackupTrigger() once from the editor to schedule it (Sundays, 2–3 am). Older copies go to the Drive bin. */
-const BACKUP_FOLDER = 'NZ Map Lab backups', BACKUPS_KEPT = 12;
+const BACKUP_FOLDER = 'Ruahine Map Lab backups', BACKUPS_KEPT = 12;
 function weeklyBackup() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const found = DriveApp.getFoldersByName(BACKUP_FOLDER);
   const folder = found.hasNext() ? found.next() : DriveApp.createFolder(BACKUP_FOLDER);
   const stamp = Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), 'yyyy-MM-dd');
   DriveApp.getFileById(ss.getId()).makeCopy(ss.getName() + ' backup ' + stamp, folder);
-  const files = []; const it = folder.getFiles(); while (it.hasNext()) files.push(it.next());
+  // Only this spreadsheet's own copies count towards the 12, so two groups can share the folder safely.
+  const mine = ss.getName() + ' backup ';
+  const files = []; const it = folder.getFiles(); while (it.hasNext()) { const f = it.next(); if (f.getName().indexOf(mine) === 0) files.push(f); }
   files.sort((a, b) => b.getDateCreated() - a.getDateCreated()).slice(BACKUPS_KEPT).forEach(f => f.setTrashed(true));
 }
 function installBackupTrigger() {
