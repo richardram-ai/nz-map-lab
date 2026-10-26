@@ -1,7 +1,9 @@
 // Keeps the phone form working with poor or no signal.
 // The page and its libraries are cached; recently viewed map tiles are cached; saving uses the page's own queue.
-const SHELL = 'nzml-shell-v9', TILES = 'nzml-tiles-v1', MAX_TILES = 400;
-const SHELL_URLS = ['/add/', '/add/identify.js', '/config/site.json', '/add/manifest.webmanifest', '/add/icon-192.png',
+const SHELL = 'nzml-shell-v10', TILES = 'nzml-tiles-v1', MAX_TILES = 400;
+const SHELL_URLS = ['/add/', '/add/identify.js', '/config/site.json', '/add/manifest.webmanifest', '/add/icon-192.png', '/fonts/fonts.css',
+  ...[400, 600, 700].flatMap(w => ['latin', 'latin-ext'].map(s => `/fonts/atkinson-hyperlegible-next-${s}-${w}-normal.woff2`)),
+  '/fonts/atkinson-hyperlegible-next-latin-400-italic.woff2',
   'https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.js',
   'https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.css',
   'https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/full.umd.js'];
