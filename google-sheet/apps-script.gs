@@ -1,6 +1,6 @@
 /**
  * NZ Map Lab – shared annotations store.
- * Paste into the Google Sheet's Extensions > Apps Script, set TOKEN, then Deploy > New deployment > Web app
+ * Paste into the Google Sheet's Extensions > Apps Script, run setup (it makes the token, or set TOKEN yourself), then Deploy > New deployment > Web app
  * (Execute as: Me, Who has access: Anyone). Only requests carrying TOKEN are answered,
  * and only the Cloudflare function knows TOKEN.
  * Deleting an annotation marks the row "yes" in the deleted column rather than removing it, so nothing is lost.
@@ -10,7 +10,11 @@
  * Photos: the Cloudflare function sends a copy of each photo here; it is saved to the "NZ Map Lab photos"
  * Drive folder and listed on the Photos tab. The map itself shows photos from Cloudflare R2.
  */
-const TOKEN = 'PASTE_TOKEN_HERE';
+const TOKEN = 'PASTE_TOKEN_HERE';   // leave as is to use the token setup() creates (Project Settings > Script properties > TOKEN)
+function token_() {
+  if (TOKEN && TOKEN !== 'PASTE_TOKEN_HERE') return TOKEN;
+  return PropertiesService.getScriptProperties().getProperty('TOKEN') || '';
+}
 const SHEET_NAME = 'Annotations';
 const HEADERS = ['id', 'title', 'category', 'note', 'added_by', 'added', 'geometry_type', 'geometry', 'deleted', 'photos', 'details'];
 const PHOTO_SHEET = 'Photos';
@@ -127,14 +131,14 @@ function out_(obj) {
 }
 
 function doGet(e) {
-  if (!e || !e.parameter || e.parameter.token !== TOKEN) return out_({ error: 'Not allowed' });
+  if (!e || !e.parameter || e.parameter.token !== token_() || !token_()) return out_({ error: 'Not allowed' });
   return out_(features_());
 }
 
 function doPost(e) {
   let body;
   try { body = JSON.parse(e.postData.contents); } catch (err) { return out_({ error: 'Bad request' }); }
-  if (body.token !== TOKEN) return out_({ error: 'Not allowed' });
+  if (body.token !== token_() || !token_()) return out_({ error: 'Not allowed' });
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
@@ -174,4 +178,12 @@ function doPost(e) {
 }
 
 /** Run once from the editor: creates or upgrades the tabs, creates the Drive photo folder, and approves access. */
-function setup() { sheet_(); photoSheet_(); photoFolder_(); }
+function setup() {
+  sheet_(); photoSheet_(); photoFolder_();
+  // A long random token, made here so it never has to be typed or pasted into chat. Copy it from
+  // Project Settings > Script properties into the Cloudflare secret SHEET_TOKEN.
+  const props = PropertiesService.getScriptProperties();
+  if (TOKEN === 'PASTE_TOKEN_HERE' && !props.getProperty('TOKEN'))
+    props.setProperty('TOKEN', Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, ''));
+  Logger.log('Set up. The token is in Project Settings > Script properties > TOKEN.');
+}
