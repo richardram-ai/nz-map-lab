@@ -107,6 +107,9 @@ function showMsg(t){ $('msg').textContent = t; $('msg').hidden = false; }
     style.layers.push({ id:'aer', type:'raster', source:'aer', paint:{ 'raster-fade-duration':0 } });
     style.sources.credit = { type:'geojson', data:{ type:'FeatureCollection', features:[] }, attribution:'Aerial ' + S.year + ' © Toitū Te Whenua LINZ, CC BY 4.0' };
   } else if (S.base === 'aerial') {
+    // Satellite underneath and the neighbouring region's survey (area.linz_layers_west), so wide views have no blank areas
+    if ((cfg.area.base_layers || {}).sat) { style.sources.sat = { type:'raster', tiles:[location.origin + '/linz/aerial/{z}/{x}/{y}.png?src=sat'], tileSize:256, minzoom:8, maxzoom:15 }; style.layers.push({ id:'sat', type:'raster', source:'sat' }); }
+    if ((cfg.area.linz_layers_west || {})[S.year]) { style.sources.aerw = { type:'raster', tiles:[location.origin + '/linz/aerial/{z}/{x}/{y}.png?year=' + S.year + '&side=west'], tileSize:256, minzoom:10, maxzoom:21 }; style.layers.push({ id:'aerw', type:'raster', source:'aerw' }); }
     style.sources.aer = { type:'raster', tiles:[location.origin + '/linz/aerial/{z}/{x}/{y}.png?year=' + S.year], tileSize:256, minzoom:10, maxzoom:21,
                           attribution:'Aerial ' + (S.year || 2024) + ' © Toitū Te Whenua LINZ, CC BY 4.0' };
     style.layers.push({ id:'aer', type:'raster', source:'aer' });

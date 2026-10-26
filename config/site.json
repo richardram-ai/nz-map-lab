@@ -56,7 +56,7 @@
    "2023": 120422,
    "2025": 124939
   },
-  "_linz_layers": "Hawke's Bay rural aerials (LINZ, CC BY 4.0): 2010–11 0.4 m, 2014–15 0.3 m, 2019–20 0.3 m, 2021–22 0.3 m, 2023–24 0.125 m, 2025–26 0.2 m. These cover the eastern side only; the western (Manawatū) side of the park would use Manawatū-Whanganui layers 51767, 88146, 110729, 119185, 118804.",
+  "_linz_layers": "Hawke's Bay rural aerials for the eastern side (LINZ, CC BY 4.0). linz_layers_west: the nearest Manawatū-Whanganui rural survey for the western side (2010–11, 2015–16 for 2014, 2021–22, 2023–24, and 2024 for 2025; none for 2019). The map draws the 10 m satellite underneath, so gaps show satellite rather than blank.",
   "historical_aerials": {
    "_about": "Older surveys from the LINZ imagery archive, cut once to the focus block at about 2.5 m a pixel (scripts/ruahine_rasters.py). 1995–96 covers about 87% of the block and 2006 about half.",
    "1980": {
@@ -99,7 +99,14 @@
    "_about": "The phone form's 'Save the map for offline use' button downloads aerial tiles for the focus block up to this zoom.",
    "max_zoom": 17
   },
-  "ground_m": 550
+  "ground_m": 550,
+  "linz_layers_west": {
+   "2010": 51767,
+   "2014": 88146,
+   "2021": 110729,
+   "2023": 119185,
+   "2025": 118804
+  }
  },
  "categories": [
   {

@@ -377,7 +377,7 @@ input[type=checkbox],input[type=radio]{accent-color:var(--accent)}
   <ul class="gaps">
     <li><b>The real work area</b><span>The Kashmir Road block is a provisional box round the road end. Once the work area is drawn, the block (and the offline download) can be fitted to it.</span></li>
     <li><b>Herenga ā Nuku licence</b><span>The <a href="https://www.herengaanuku.govt.nz" target="_blank" rel="noopener">Herenga ā Nuku</a> site states CC BY 4.0, but its track and access‑land services carry no licence text. Confirm before the map is made public.</span></li>
-    <li><b>Aerials cover the eastern side only</b><span>The aerial years are Hawke's Bay surveys, so the western (Manawatū) side of the park is blank on the aerial base. Use the topo map or satellite for the whole park.</span></li>
+    <li><b>Two regions, two sets of aerials</b><span>Each aerial year joins the Hawke's Bay survey (east) with the nearest Manawatū‑Whanganui survey (west), over the 2025–26 satellite. The years don't always match: west is 2015–16 for “2014” and 2024 for “2025”, and there's no western survey for 2019.</span></li>
     <li><b>LiDAR predates the harvest</b><span>Both Hawke's Bay LiDAR flights (2020–21 and 2023–24) were before DOC's 2024–25 harvest, so LiDAR can't show the clearance yet. The 2025–26 aerial does.</span></li>
     <li><b>Plant list</b><span>The phone form's plant list is a starter list for the eastern Ruahine foothills. Replace it with the group's list and the names they use.</span></li>
     <li><b>Offline in the field</b><span>Open the phone form with signal, tap “Save the map for offline use”, and let the photo helper download once. After that the form, map tiles for the block and species suggestions work without signal.</span></li>
@@ -450,7 +450,14 @@ const TILE=q=>location.origin+'/linz/aerial/{z}/{x}/{y}.png?'+q;
 const BG=[{id:'bg',type:'background',paint:{'background-color':'#eef1ec'}}];
 function yearStyle(y,canvasId){
   if(HIST.includes(y)) return {version:8,sources:{aer:{type:'canvas',canvas:canvasId,coordinates:IMGBOX,animate:false,attribution:'Aerial '+y+' © Toitū Te Whenua LINZ, CC BY 4.0'}},layers:[...BG,{id:'aer',type:'raster',source:'aer',paint:{'raster-fade-duration':0}}]};
-  return {version:8,sources:{aer:{type:'raster',tiles:[TILE('year='+y)],tileSize:256,minzoom:10,maxzoom:21,attribution:'Aerial '+y+' © Toitū Te Whenua LINZ, CC BY 4.0'}},layers:[...BG,{id:'aer',type:'raster',source:'aer'}]};
+  // Satellite underneath, then the western (Manawatū-Whanganui) survey, then the Hawke's Bay survey, so the whole park is covered.
+  const west=(AREA.linz_layers_west||{})[y];
+  const st={version:8,sources:{sat:{type:'raster',tiles:[TILE('src=sat')],tileSize:256,minzoom:8,maxzoom:15,attribution:'Satellite 2025–26 © Toitū Te Whenua LINZ, CC BY 4.0'},
+    aer:{type:'raster',tiles:[TILE('year='+y)],tileSize:256,minzoom:10,maxzoom:21,attribution:'Aerial '+y+' © Toitū Te Whenua LINZ, CC BY 4.0'}},
+    layers:[...BG,{id:'sat',type:'raster',source:'sat'}]};
+  if(west){ st.sources.aerw={type:'raster',tiles:[TILE('year='+y+'&side=west')],tileSize:256,minzoom:10,maxzoom:21}; st.layers.push({id:'aerw',type:'raster',source:'aerw'}) }
+  st.layers.push({id:'aer',type:'raster',source:'aer'});
+  return st;
 }
 function rasterStyle(tiles,attr,max,min){return {version:8,sources:{r:{type:'raster',tiles:[tiles],tileSize:256,minzoom:min||0,maxzoom:max||19,attribution:attr}},layers:[...BG,{id:'r',type:'raster',source:'r'}]}}
 let baseMode='aerial';
@@ -976,7 +983,7 @@ LAYERS.forEach(L=>{
   tr.innerHTML=`<td><b>${L.label}</b></td><td><a href="${P[1]}" target="_blank" rel="noopener">${P[0]}</a><br><span class="hint mono">${P[1].replace('https://','')}</span></td><td>${lic}</td><td class="num">${L.lazy?'on demand':(L.countText||L.count.toLocaleString('en-NZ'))}</td><td>${esc(L.cov)}</td><td>${L.why}</td>`;
   tb.appendChild(tr);
 });
-[['Aerial photos, '+LINZY.join(', '),'Hawke’s Bay rural aerial surveys, served full detail through the site. Eastern side of the park only.'],
+[['Aerial photos, '+LINZY.join(', '),'Hawke’s Bay rural aerial surveys (east) with the nearest Manawatū‑Whanganui survey (west), served full detail through the site.'],
  ['Aerial photos, '+HIST.join(', '),'Older surveys from the LINZ imagery archive, cut to the Kashmir Road block. 1980 shows no plantation; 1995 shows it newly planted.'],
  ['Topo map and 10 m satellite','NZ Topo50 (gridless) and the 2025–26 national satellite mosaic, for the whole park.']].forEach(([n,w])=>{
   const tr=document.createElement('tr'); tr.innerHTML=`<td><b>${n}</b></td><td><a href="https://www.linz.govt.nz" target="_blank" rel="noopener">Toitū Te Whenua LINZ</a><br><span class="hint mono">www.linz.govt.nz</span></td><td>CC BY 4.0</td><td class="num">tiles</td><td>${n.startsWith('Topo')?'Park':'Block / east'}</td><td>${w}</td>`; tb.appendChild(tr) });

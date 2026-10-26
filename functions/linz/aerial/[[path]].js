@@ -1,6 +1,6 @@
 // Serves LINZ aerial photo tiles for the test area, adding the LINZ Data Service key on the server.
 // The key lives in the Cloudflare Pages secret LINZ_KEY, never in the page or this repository.
-// Route: /linz/aerial/{z}/{x}/{y}.png?year=2013 (defaults to the latest year)
+// Route: /linz/aerial/{z}/{x}/{y}.png?year=2013 (defaults to the latest year); add &side=west for area.linz_layers_west
 //        /linz/aerial/{z}/{x}/{y}.png?src=topo or ?src=sat for the layers named in area.base_layers
 
 // The area and the LINZ layer for each year come from the settings file (area.bounds, area.linz_layers).
@@ -45,7 +45,7 @@ export async function onRequestGet({ params, env, request }) {
   } else {
     const years = Object.keys(layers).map(Number).sort();
     const year = Number(qs.get('year')) || years[years.length - 1];
-    LAYER = layers[year];
+    LAYER = qs.get('side') === 'west' ? (area.linz_layers_west || {})[year] : layers[year];   // west: the neighbouring region's survey
     if (!LAYER) return new Response('No aerial photos for that year', { status: 404 });
   }
   const sub = 'abcd'[(x + y) % 4];
