@@ -71,6 +71,10 @@ function cleanTask(p, cfg, hasPhotos, ai) {
       fields[fd.id] = Math.round(n * 100) / 100;
     } else if (fd.type === 'yesno') {
       fields[fd.id] = v === true || v === 'yes';
+    } else if (fd.type === 'date') {
+      const d = String(v).trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || isNaN(Date.parse(d))) throw new Error(`“${fd.label}”: give a date.`);
+      fields[fd.id] = d;
     } else {
       fields[fd.id] = String(v).trim().slice(0, fd.max || 200);
     }
@@ -127,7 +131,13 @@ function cleanFeature(f, cfg) {
   }
   const cats = (cfg && cfg.categories || []).map(c => c.id);
   const catOk = c => CATS.includes(c) || cats.includes(c);
-  const cat = taskInfo && taskInfo.task.category && catOk(taskInfo.task.category) ? taskInfo.task.category : (catOk(p.cat) ? p.cat : 'Observation');
+  // A choice field can set the category (sets_category), e.g. a wilding area's status picks Cleared or Regrowth.
+  let taskCat = taskInfo && taskInfo.task.category;
+  if (taskInfo) for (const fd of taskInfo.task.fields) {
+    const v = taskInfo.fields[fd.id];
+    if (fd.sets_category && typeof v === 'string' && fd.sets_category[v]) taskCat = fd.sets_category[v];
+  }
+  const cat = taskCat && catOk(taskCat) ? taskCat : (catOk(p.cat) ? p.cat : 'Observation');
   return {
     type: 'Feature',
     geometry,

@@ -1,0 +1,1 @@
+{"type":"FeatureCollection","features":[{"type":"Feature","properties":{"name":"T3: Piripiri Campsite","type":"Campsite","kind":"Basic"},"geometry":{"type":"Point","coordinates":[175.937414,-40.052416]}},{"type":"Feature","properties":{"name":"T3: Pohangina Base Campsite","type":"Campsite","kind":"Standard"},"geometry":{"type":"Point","coordinates":[175.95671,-40.04734]}}]}

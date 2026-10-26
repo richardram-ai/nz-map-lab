@@ -1,3 +1,25 @@
+# NZ Map Lab — Ruahine branch
+
+**This branch is the first test group's map: Ruahine Forest Park, with a detailed block at the end of Kashmir Road, Ashley Clinton, for wilding pine work.** Cloudflare Pages publishes it at https://ruahine.nz-map-lab.pages.dev. The main branch keeps the Palmerston North test square.
+
+What differs from main:
+
+| | |
+|---|---|
+| `config/site.json` | Park bounds, `area.focus` (the Kashmir Road block), `area.boundary`, Hawke's Bay aerial years, `area.base_layers` (Topo50, 10 m satellite), tasks for wilding pines, starter plant and conifer lists. |
+| `index.html` | Built by `scripts/ruahine_page.py` from the shared `scripts/template.html` (copy in `scripts/template-ruahine.html`). Aerial years load as LINZ tiles through the site; 1980, 1995–96 and 2006 are images of the block. Topo and satellite bases; walking-access layers; a wilding-area form and totals. |
+| `scripts/ruahine_fetch.py` | DOC park, tracks, huts, campsites, roads; Herenga ā Nuku tracks and public access land; iNaturalist sightings (block) and conifers (park). |
+| `scripts/ruahine_rasters.py` | Older aerials cut to the block, and LiDAR canopy, contours and height shading (2023–24 Hawke's Bay LiDAR). |
+| `functions/linz/aerial` | Also serves `?src=topo` and `?src=sat` (layers named in `area.base_layers`), from zoom 8. |
+| `functions/api/annotations.js` | Date fields, and a choice field can set the record's category (`sets_category`). Worth merging to main. |
+| `add/` | Hides desktop-only tasks, uses the latest aerial year, and adds "Save the map for offline use" (aerial tiles for the block to zoom 17, plus the photo helper). Worth merging to main. |
+
+Rebuild: `python3 scripts/ruahine_fetch.py WORK/layers && python3 scripts/ruahine_rasters.py WORK && python3 scripts/ruahine_page.py WORK`.
+
+Data downloaded 26 October 2026: [Department of Conservation](https://www.doc.govt.nz) (CC BY 4.0); [Herenga ā Nuku Aotearoa](https://www.herengaanuku.govt.nz) (CC BY 4.0 stated on their site, not in the services); [iNaturalist NZ](https://inaturalist.nz) observers (per record); [Toitū Te Whenua LINZ](https://www.linz.govt.nz) aerials, Topo50, satellite and LiDAR (CC BY 4.0).
+
+---
+
 # NZ Map Lab
 
 A test of what free public New Zealand data can be layered on a map, and how an organisation can add its own notes on top. The test area is a 1 km square centred on 16 Sydney Street, Palmerston North.

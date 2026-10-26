@@ -1,206 +1,588 @@
 {
-  "_about": "Settings for one organisation's map. The desktop map, phone form, embed and Cloudflare functions all read this file. Everything marked 'example' is sample content to replace with the organisation's own.",
-  "organisation": {
-    "name": "NZ Map Lab (test square)",
-    "short_name": "Map Lab",
-    "contact": "Richard Ram",
-    "colour": "#2c7a4b"
+ "_about": "Settings for the Ruahine test map (DRAFT 26 Oct 2026, not deployed). Two levels: the whole Ruahine Forest Park for walking access, and a detailed focus block at the end of Kashmir Road (Ashley Clinton) for wilding pine work. Keys starting 'focus' or 'boundary' are new and need code support before they do anything.",
+ "organisation": {
+  "name": "Ruahine wilding pines (test)",
+  "short_name": "Ruahine",
+  "contact": "Richard Ram",
+  "colour": "#2c7a4b"
+ },
+ "area": {
+  "_about": "bounds: the whole forest park plus a margin (records must fall inside; LINZ tiles are served only inside it). boundary: DOC's park outline. focus: the detailed block at the end of Kashmir Road, where the aerial timeline, LiDAR and offline download apply; 'square' is the same box, for code that expects it. Replace the focus box with the group's real work area when it is drawn.",
+  "bounds": {
+   "west": 175.8,
+   "south": -40.3,
+   "east": 176.39,
+   "north": -39.47
   },
-  "area": {
-    "_about": "bounds: records must fall inside this box, and aerial tiles are only served inside it. square: the outline drawn on maps. centre and zoom: where maps open. linz_layers: the LINZ Data Service layer number for each aerial photo year (find them at data.linz.govt.nz).",
-    "bounds": { "west": 175.598, "south": -40.364, "east": 175.641, "north": -40.335 },
-    "square": [[175.613645, -40.354261], [175.625433, -40.345252]],
-    "centre": [175.6195385, -40.349756],
-    "zoom": 16.3,
-    "aerial_years": [2013, 2015, 2017, 2018, 2022, 2024],
-    "linz_layers": { "2013": 52338, "2015": 88138, "2017": 99251, "2018": 105192, "2022": 111539, "2024": 119050 },
-    "historical_aerials": {
-      "_about": "Older surveys with no LINZ map service, cut once to an image of the square (scripts/hist_aerial.py). Shown up to zoom 18.5.",
-      "1979": { "image": "/imagery/aerial-1979.jpg", "note": "1979–80, 37.5 cm, black and white", "survey": "SN5408" },
-      "1992": { "image": "/imagery/aerial-1992.jpg", "note": "1992, 40 cm, black and white", "survey": "SN11922" },
-      "2001": { "image": "/imagery/aerial-2001.jpg", "note": "2001, 75 cm, colour", "survey": "SNC25061" },
-      "2010": { "image": "/imagery/aerial-2010.jpg", "note": "2010–11, 40 cm, colour", "survey": "Manawatū-Whanganui rural 2010–11" }
-    }
+  "boundary": "/data/doc_park.geojson",
+  "focus": {
+   "name": "Kashmir Road wilding block",
+   "bounds": {
+    "west": 176.12,
+    "south": -39.975,
+    "east": 176.2,
+    "north": -39.925
+   },
+   "zoom": 15
   },
-  "categories": [
-    { "id": "Observation", "label": "Observation", "colour": "#28699a" },
-    { "id": "Planting", "label": "Planting", "colour": "#2c7a4b" },
-    { "id": "Pest or weed", "label": "Pest or weed", "colour": "#b8334a" },
-    { "id": "Issue", "label": "Issue", "colour": "#c47d14" }
+  "square": [
+   [
+    176.12,
+    -39.975
+   ],
+   [
+    176.2,
+    -39.925
+   ]
   ],
-  "identification": {
-    "_about": "Shown next to any species choice. 'Not sure' and 'Other' records are marked as needing an ID and need a photo.",
-    "confidence": [
-      { "id": "sure", "label": "Sure" },
-      { "id": "think", "label": "Think so" },
-      { "id": "unsure", "label": "Not sure" }
-    ],
-    "photo_required_when_unsure": true,
-    "classifier": true,
-    "_classifier": "Offers species suggestions from a photo on list fields that ask how sure the person is. Uses the Aotearoa Species Classifier (TAIAO, University of Waikato, CC BY-NC 4.0) stored in /models/. Set to false to turn it off."
-  },
-  "tasks": [
-    {
-      "id": "observation",
-      "label": "Observation",
-      "hint": "Something seen: a bird, a plant, an animal",
-      "category": "Observation",
-      "title": "{species}",
-      "fields": [
-        { "id": "species", "label": "What did you see?", "type": "list", "list": "wildlife", "required": true, "unlisted_from_photo": 0.95,
-          "_unlisted_from_photo": "A species not on the list, picked from a photo suggestion at this confidence or higher, is saved by name without needing an ID check." },
-        { "id": "count", "label": "How many?", "type": "number", "min": 1, "max": 500, "default": 1 }
-      ]
-    },
-    {
-      "id": "planting",
-      "label": "Planting",
-      "hint": "Plants going in the ground",
-      "category": "Planting",
-      "title": "{species} × {count}",
-      "fields": [
-        { "id": "species", "label": "Species planted", "type": "list", "list": "plants", "required": true },
-        { "id": "count", "label": "Number planted", "type": "number", "min": 1, "max": 1000, "default": 1, "required": true },
-        { "id": "guard", "label": "Plant guard fitted?", "type": "yesno" }
-      ]
-    },
-    {
-      "id": "trap-check",
-      "label": "Trap check",
-      "hint": "Checking and re-baiting a trap",
-      "category": "Pest or weed",
-      "title": "Trap {trap}: {catch}",
-      "fields": [
-        { "id": "trap", "label": "Trap", "type": "list", "list": "traps", "required": true, "confidence": false, "title_uses": "id" },
-        { "id": "catch", "label": "Catch", "type": "choice", "required": true,
-          "options": ["Nothing", "Rat", "Mouse", "Stoat", "Weasel", "Ferret", "Hedgehog", "Possum", "Cat", "Bird (non-target)", "Sprung, empty", "Trap damaged"] },
-        { "id": "rebaited", "label": "Re-baited?", "type": "yesno", "default": true }
-      ]
-    },
-    {
-      "id": "weed-survey",
-      "label": "Weed survey",
-      "hint": "A weed patch to deal with",
-      "category": "Pest or weed",
-      "title": "{species} ({size})",
-      "fields": [
-        { "id": "species", "label": "Weed", "type": "list", "list": "weeds", "required": true },
-        { "id": "size", "label": "Patch size", "type": "choice", "required": true,
-          "options": ["Single plant", "Small (under 1 m²)", "Medium (1–10 m²)", "Large (over 10 m²)"] },
-        { "id": "treated", "label": "Treated today?", "type": "yesno" }
-      ]
-    },
-    {
-      "id": "general",
-      "label": "Other",
-      "hint": "Anything else: an issue, a note, an idea",
-      "category": null,
-      "title": "{title}",
-      "fields": [
-        { "id": "title", "label": "Title", "type": "text", "max": 80, "required": true }
-      ]
-    }
+  "centre": [
+   176.16,
+   -39.95
   ],
-  "lists": {
-    "_about": "Pick lists. Each item: id (short, never changes), common name, Māori name, scientific name. Example lists for the Manawatū.",
-    "plants": [
-      { "id": "kowhai", "common": "Kōwhai", "maori": "Kōwhai", "sci": "Sophora microphylla" },
-      { "id": "harakeke", "common": "Flax", "maori": "Harakeke", "sci": "Phormium tenax" },
-      { "id": "wharariki", "common": "Mountain flax", "maori": "Wharariki", "sci": "Phormium cookianum" },
-      { "id": "karamu", "common": "Karamū", "maori": "Karamū", "sci": "Coprosma robusta" },
-      { "id": "manuka", "common": "Mānuka", "maori": "Mānuka", "sci": "Leptospermum scoparium" },
-      { "id": "kanuka", "common": "Kānuka", "maori": "Kānuka", "sci": "Kunzea robusta" },
-      { "id": "ti-kouka", "common": "Cabbage tree", "maori": "Tī kōuka", "sci": "Cordyline australis" },
-      { "id": "kahikatea", "common": "White pine", "maori": "Kahikatea", "sci": "Dacrycarpus dacrydioides" },
-      { "id": "totara", "common": "Tōtara", "maori": "Tōtara", "sci": "Podocarpus totara" },
-      { "id": "titoki", "common": "Tītoki", "maori": "Tītoki", "sci": "Alectryon excelsus" },
-      { "id": "karaka", "common": "Karaka", "maori": "Karaka", "sci": "Corynocarpus laevigatus" },
-      { "id": "mahoe", "common": "Whiteywood", "maori": "Māhoe", "sci": "Melicytus ramiflorus" },
-      { "id": "kohuhu", "common": "Black matipo", "maori": "Kōhūhū", "sci": "Pittosporum tenuifolium" },
-      { "id": "tarata", "common": "Lemonwood", "maori": "Tarata", "sci": "Pittosporum eugenioides" },
-      { "id": "koromiko", "common": "Koromiko", "maori": "Koromiko", "sci": "Veronica stricta" },
-      { "id": "ngaio", "common": "Ngaio", "maori": "Ngaio", "sci": "Myoporum laetum" },
-      { "id": "kawakawa", "common": "Kawakawa", "maori": "Kawakawa", "sci": "Piper excelsum" },
-      { "id": "akeake", "common": "Akeake", "maori": "Akeake", "sci": "Dodonaea viscosa" },
-      { "id": "purei", "common": "Swamp sedge", "maori": "Pūrei", "sci": "Carex secta" },
-      { "id": "whauwhaupaku", "common": "Five finger", "maori": "Whauwhaupaku", "sci": "Pseudopanax arboreus" }
-    ],
-    "weeds": [
-      { "id": "tradescantia", "common": "Tradescantia", "maori": "", "sci": "Tradescantia fluminensis" },
-      { "id": "old-mans-beard", "common": "Old man's beard", "maori": "", "sci": "Clematis vitalba" },
-      { "id": "wild-ginger", "common": "Wild ginger", "maori": "", "sci": "Hedychium gardnerianum" },
-      { "id": "blackberry", "common": "Blackberry", "maori": "", "sci": "Rubus fruticosus agg." },
-      { "id": "japanese-honeysuckle", "common": "Japanese honeysuckle", "maori": "", "sci": "Lonicera japonica" },
-      { "id": "banana-passionfruit", "common": "Banana passionfruit", "maori": "", "sci": "Passiflora tarminiana" },
-      { "id": "ivy", "common": "Ivy", "maori": "", "sci": "Hedera helix" },
-      { "id": "agapanthus", "common": "Agapanthus", "maori": "", "sci": "Agapanthus praecox" },
-      { "id": "privet", "common": "Privet", "maori": "", "sci": "Ligustrum spp." },
-      { "id": "gorse", "common": "Gorse", "maori": "", "sci": "Ulex europaeus" },
-      { "id": "great-bindweed", "common": "Great bindweed", "maori": "", "sci": "Calystegia silvatica" },
-      { "id": "climbing-asparagus", "common": "Climbing asparagus", "maori": "", "sci": "Asparagus scandens" }
-    ],
-    "wildlife": [
-      { "id": "tui", "common": "Tūī", "maori": "Tūī", "sci": "Prosthemadera novaeseelandiae" },
-      { "id": "kereru", "common": "Wood pigeon", "maori": "Kererū", "sci": "Hemiphaga novaeseelandiae" },
-      { "id": "piwakawaka", "common": "Fantail", "maori": "Pīwakawaka", "sci": "Rhipidura fuliginosa" },
-      { "id": "riroriro", "common": "Grey warbler", "maori": "Riroriro", "sci": "Gerygone igata" },
-      { "id": "tauhou", "common": "Silvereye", "maori": "Tauhou", "sci": "Zosterops lateralis" },
-      { "id": "kotare", "common": "Kingfisher", "maori": "Kōtare", "sci": "Todiramphus sanctus" },
-      { "id": "ruru", "common": "Morepork", "maori": "Ruru", "sci": "Ninox novaeseelandiae" },
-      { "id": "korimako", "common": "Bellbird", "maori": "Korimako", "sci": "Anthornis melanura" },
-      { "id": "kowhai-tree", "common": "Kōwhai (tree)", "maori": "Kōwhai", "sci": "Sophora microphylla" },
-      { "id": "whauwhaupaku-tree", "common": "Five finger", "maori": "Whauwhaupaku", "sci": "Pseudopanax arboreus" },
-      { "id": "monarch", "common": "Monarch butterfly", "maori": "Kahuku", "sci": "Danaus plexippus" },
-      { "id": "skink", "common": "Skink", "maori": "Mokomoko", "sci": "Scincidae" },
-      { "id": "eel", "common": "Eel", "maori": "Tuna", "sci": "Anguilla spp." }
-    ],
-    "traps": [
-      { "id": "T01", "common": "T01 – DOC200, Sydney St berm", "maori": "", "sci": "" },
-      { "id": "T02", "common": "T02 – DOC200, playground edge", "maori": "", "sci": "" },
-      { "id": "T03", "common": "T03 – A24, notable rātā", "maori": "", "sci": "" },
-      { "id": "T04", "common": "T04 – Possum trap, school fence", "maori": "", "sci": "" },
-      { "id": "T05", "common": "T05 – Rat box, cycle path", "maori": "", "sci": "" },
-      { "id": "T06", "common": "T06 – Rat box, church grounds", "maori": "", "sci": "" }
-    ]
+  "zoom": 14.5,
+  "aerial_years": [
+   2010,
+   2014,
+   2019,
+   2021,
+   2023,
+   2025
+  ],
+  "linz_layers": {
+   "2010": 51778,
+   "2014": 53401,
+   "2019": 105293,
+   "2021": 110466,
+   "2023": 120422,
+   "2025": 124939
   },
-  "admin": {
-    "_about": "Links in the 'For coordinators' bar on the desktop map. Anyone can see the bar; the Sheet and handbook only open for people they are shared with.",
-    "links": [
-      { "label": "Review records", "url": "/review/" },
-      { "label": "Add a record", "url": "/add/" },
-      { "label": "Explore in 3D", "url": "/explore/" },
-      { "label": "Records spreadsheet", "url": "https://docs.google.com/spreadsheets/d/1DFExwtYtcAEvVLTlKq-9ysr7jGYlrLOuZBcyOp3PjoY/edit" },
-      { "label": "Handbook", "url": "https://claude.ai/artifact/TDQT1smK8Ev1RermkurcGT" }
-    ]
+  "_linz_layers": "Hawke's Bay rural aerials (LINZ, CC BY 4.0): 2010–11 0.4 m, 2014–15 0.3 m, 2019–20 0.3 m, 2021–22 0.3 m, 2023–24 0.125 m, 2025–26 0.2 m. These cover the eastern side only; the western (Manawatū) side of the park would use Manawatū-Whanganui layers 51767, 88146, 110729, 119185, 118804.",
+  "historical_aerials": {
+   "_about": "Older surveys from the LINZ imagery archive, cut once to the focus block at about 2.5 m a pixel (scripts/ruahine_rasters.py). 1995–96 covers about 87% of the block and 2006 about half.",
+   "1980": {
+    "image": "/imagery/aerial-1980.jpg",
+    "note": "1980, black and white",
+    "survey": "hawkes-bay_manawatu-whanganui_sn5761_1980_0.375m"
+   },
+   "1995": {
+    "image": "/imagery/aerial-1995.jpg",
+    "note": "1995–96, black and white (87% of the block)",
+    "survey": "hawkes-bay_sn9485_1995-1996_0.375m"
+   },
+   "2006": {
+    "image": "/imagery/aerial-2006.jpg",
+    "note": "2006, colour (north half of the block)",
+    "survey": "hawkes-bay_sn50529c_2006_0.6m"
+   }
   },
-  "embed_views": {
-    "_about": "Named views for /embed/?view=name. Any setting can also be given directly in the embed address, which overrides the view.",
-    "homepage": {
-      "title": "Our patch of Palmerston North",
-      "base": "aerial", "year": 2024, "zoom": 15.6,
-      "layers": ["records", "pncc_notable_trees"],
-      "available": ["inat_obs", "lidar_canopy", "hz_flood200"],
-      "legend": true
-    },
-    "planting": {
-      "title": "Planting this season",
-      "base": "aerial", "year": 2024,
-      "layers": ["records"], "tasks": ["planting"], "from": "2026-07",
-      "legend": true
-    },
-    "trap-results": {
-      "title": "Trap catches",
-      "base": "street",
-      "layers": ["records"], "tasks": ["trap-check"],
-      "legend": true
-    },
-    "then-2013": {
-      "title": "The square in 2013",
-      "base": "aerial", "year": 2013, "zoom": 16.3, "layers": [], "lock": true, "legend": false
-    },
-    "canopy": {
-      "title": "Tree canopy from LiDAR",
-      "base": "street", "layers": ["lidar_canopy", "pncc_notable_trees"], "available": ["inat_obs"], "legend": true
-    }
+  "park": {
+   "centre": [
+    176.094,
+    -39.886
+   ],
+   "zoom": 9.4
+  },
+  "base_layers": {
+   "_about": "Other LINZ layers the tile function will serve inside the bounds: topo = NZ Topo50 gridless maps, sat = NZ 10 m satellite imagery 2025–26.",
+   "topo": 52343,
+   "sat": 125334
+  },
+  "aerial_notes": {
+   "2010": "Hawke's Bay rural 2010–11, 40 cm",
+   "2014": "Hawke's Bay rural 2014–15, 30 cm",
+   "2019": "Hawke's Bay rural 2019–20, 30 cm",
+   "2021": "Hawke's Bay rural 2021–22, 30 cm",
+   "2023": "Hawke's Bay rural 2023–24, 12.5 cm",
+   "2025": "Hawke's Bay rural 2025–26, 20 cm"
+  },
+  "offline": {
+   "_about": "The phone form's 'Save the map for offline use' button downloads aerial tiles for the focus block up to this zoom.",
+   "max_zoom": 17
   }
+ },
+ "categories": [
+  {
+   "id": "Work area",
+   "label": "Wilding work area (outline)",
+   "colour": "#5b4a8a"
+  },
+  {
+   "id": "Cleared",
+   "label": "Cleared",
+   "colour": "#2c7a4b"
+  },
+  {
+   "id": "To do",
+   "label": "Not yet cleared",
+   "colour": "#b8334a"
+  },
+  {
+   "id": "Regrowth",
+   "label": "Pines coming back",
+   "colour": "#c47d14"
+  },
+  {
+   "id": "Observation",
+   "label": "Plant or wildlife",
+   "colour": "#28699a"
+  },
+  {
+   "id": "Access",
+   "label": "Track or access note",
+   "colour": "#6b6b6b"
+  }
+ ],
+ "identification": {
+  "_about": "Shown next to any species choice. 'Not sure' and 'Other' records are marked as needing an ID and need a photo.",
+  "confidence": [
+   {
+    "id": "sure",
+    "label": "Sure"
+   },
+   {
+    "id": "think",
+    "label": "Think so"
+   },
+   {
+    "id": "unsure",
+    "label": "Not sure"
+   }
+  ],
+  "photo_required_when_unsure": true,
+  "classifier": true,
+  "_classifier": "Offers species suggestions from a photo on list fields that ask how sure the person is. Uses the Aotearoa Species Classifier (TAIAO, University of Waikato, CC BY-NC 4.0) stored in /models/. Set to false to turn it off."
+ },
+ "tasks": [
+  {
+   "id": "wilding-area",
+   "label": "Wilding area",
+   "hint": "An outline drawn on the desktop map: the work area, or a part that is cleared, not yet cleared, or has pines coming back",
+   "category": "Work area",
+   "desktop_only": true,
+   "title": "{status}: {name}",
+   "fields": [
+    {
+     "id": "status",
+     "label": "Status",
+     "type": "choice",
+     "required": true,
+     "options": [
+      "Work area",
+      "Cleared",
+      "Not yet cleared",
+      "Regrowth"
+     ],
+     "sets_category": {
+      "Work area": "Work area",
+      "Cleared": "Cleared",
+      "Not yet cleared": "To do",
+      "Regrowth": "Regrowth"
+     }
+    },
+    {
+     "id": "name",
+     "label": "Block name",
+     "type": "text",
+     "max": 60
+    },
+    {
+     "id": "date",
+     "label": "Date cleared or last checked",
+     "type": "date"
+    },
+    {
+     "id": "method",
+     "label": "Method",
+     "type": "choice",
+     "options": [
+      "Felled (harvest)",
+      "Hand pulled",
+      "Cut",
+      "Drilled and poisoned",
+      "Aerial spray",
+      "Not treated"
+     ]
+    },
+    {
+     "id": "density",
+     "label": "Density",
+     "type": "choice",
+     "options": [
+      "Scattered",
+      "Moderate",
+      "Dense"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "wilding-found",
+   "label": "Wilding pine found",
+   "hint": "A pine or patch of pines you found",
+   "category": "Regrowth",
+   "title": "{species} × {count} ({size})",
+   "fields": [
+    {
+     "id": "species",
+     "label": "Which conifer?",
+     "type": "list",
+     "list": "conifers",
+     "required": true
+    },
+    {
+     "id": "count",
+     "label": "How many?",
+     "type": "number",
+     "min": 1,
+     "max": 1000,
+     "default": 1
+    },
+    {
+     "id": "size",
+     "label": "Biggest size",
+     "type": "choice",
+     "required": true,
+     "options": [
+      "Seedling (under 30 cm)",
+      "Sapling (30 cm–2 m)",
+      "Young tree (2–5 m)",
+      "Tree (over 5 m)"
+     ]
+    },
+    {
+     "id": "coning",
+     "label": "Has cones?",
+     "type": "yesno"
+    },
+    {
+     "id": "action",
+     "label": "What did you do?",
+     "type": "choice",
+     "required": true,
+     "options": [
+      "Pulled",
+      "Cut",
+      "Marked for later",
+      "Nothing yet"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "plant-id",
+   "label": "Plant to identify",
+   "hint": "A plant coming back after clearing; photo helper works offline once downloaded",
+   "category": "Observation",
+   "title": "{species}",
+   "fields": [
+    {
+     "id": "species",
+     "label": "What is it?",
+     "type": "list",
+     "list": "plants",
+     "required": true,
+     "unlisted_from_photo": 0.95
+    },
+    {
+     "id": "count",
+     "label": "How many?",
+     "type": "number",
+     "min": 1,
+     "max": 500,
+     "default": 1
+    }
+   ]
+  },
+  {
+   "id": "access",
+   "label": "Track or access",
+   "hint": "Track condition, windfall, a gate, a sign",
+   "category": "Access",
+   "title": "{issue}",
+   "fields": [
+    {
+     "id": "issue",
+     "label": "What is it?",
+     "type": "choice",
+     "required": true,
+     "options": [
+      "Windfall or blocked",
+      "Track damage",
+      "Sign missing or wrong",
+      "Gate or stile",
+      "Good access point",
+      "Other"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "general",
+   "label": "Other",
+   "hint": "Anything else",
+   "category": null,
+   "title": "{title}",
+   "fields": [
+    {
+     "id": "title",
+     "label": "Title",
+     "type": "text",
+     "max": 80,
+     "required": true
+    }
+   ]
+  }
+ ],
+ "lists": {
+  "_about": "Pick lists: id, common, Māori, scientific. Conifers are the wilding species on the Biosecurity list, all known to the photo helper. Plants is a STARTER list for the Ruahine eastern foothills to confirm with the group.",
+  "conifers": [
+   {
+    "id": "contorta",
+    "common": "Lodgepole pine",
+    "maori": "",
+    "sci": "Pinus contorta"
+   },
+   {
+    "id": "radiata",
+    "common": "Radiata pine",
+    "maori": "",
+    "sci": "Pinus radiata"
+   },
+   {
+    "id": "nigra",
+    "common": "Corsican pine",
+    "maori": "",
+    "sci": "Pinus nigra"
+   },
+   {
+    "id": "ponderosa",
+    "common": "Ponderosa pine",
+    "maori": "",
+    "sci": "Pinus ponderosa"
+   },
+   {
+    "id": "sylvestris",
+    "common": "Scots pine",
+    "maori": "",
+    "sci": "Pinus sylvestris"
+   },
+   {
+    "id": "pinaster",
+    "common": "Maritime pine",
+    "maori": "",
+    "sci": "Pinus pinaster"
+   },
+   {
+    "id": "mugo",
+    "common": "Mountain pine",
+    "maori": "",
+    "sci": "Pinus mugo"
+   },
+   {
+    "id": "douglas",
+    "common": "Douglas fir",
+    "maori": "",
+    "sci": "Pseudotsuga menziesii"
+   },
+   {
+    "id": "larch",
+    "common": "European larch",
+    "maori": "",
+    "sci": "Larix decidua"
+   },
+   {
+    "id": "pine-unknown",
+    "common": "Pine, not sure which",
+    "maori": "",
+    "sci": "Pinus"
+   }
+  ],
+  "plants": [
+   {
+    "id": "manuka",
+    "common": "Mānuka",
+    "maori": "Mānuka",
+    "sci": "Leptospermum scoparium"
+   },
+   {
+    "id": "kanuka",
+    "common": "Kānuka",
+    "maori": "Kānuka",
+    "sci": "Kunzea robusta"
+   },
+   {
+    "id": "kamahi",
+    "common": "Kāmahi",
+    "maori": "Kāmahi",
+    "sci": "Pterophylla racemosa"
+   },
+   {
+    "id": "red-beech",
+    "common": "Red beech",
+    "maori": "Tawhairaunui",
+    "sci": "Fuscospora fusca"
+   },
+   {
+    "id": "black-beech",
+    "common": "Black beech",
+    "maori": "Tawhairauriki",
+    "sci": "Fuscospora solandri"
+   },
+   {
+    "id": "mountain-beech",
+    "common": "Mountain beech",
+    "maori": "Tawhairauriki",
+    "sci": "Fuscospora cliffortioides"
+   },
+   {
+    "id": "mahoe",
+    "common": "Whiteywood",
+    "maori": "Māhoe",
+    "sci": "Melicytus ramiflorus"
+   },
+   {
+    "id": "koromiko",
+    "common": "Koromiko",
+    "maori": "Koromiko",
+    "sci": "Veronica stricta"
+   },
+   {
+    "id": "tutu",
+    "common": "Tutu",
+    "maori": "Tutu",
+    "sci": "Coriaria arborea"
+   },
+   {
+    "id": "horopito",
+    "common": "Pepper tree",
+    "maori": "Horopito",
+    "sci": "Pseudowintera colorata"
+   },
+   {
+    "id": "karamu",
+    "common": "Karamū",
+    "maori": "Karamū",
+    "sci": "Coprosma robusta"
+   },
+   {
+    "id": "kowhai",
+    "common": "Kōwhai",
+    "maori": "Kōwhai",
+    "sci": "Sophora microphylla"
+   },
+   {
+    "id": "totara",
+    "common": "Tōtara",
+    "maori": "Tōtara",
+    "sci": "Podocarpus totara"
+   },
+   {
+    "id": "broadleaf",
+    "common": "Broadleaf",
+    "maori": "Kāpuka",
+    "sci": "Griselinia littoralis"
+   },
+   {
+    "id": "bracken",
+    "common": "Bracken",
+    "maori": "Rārahu",
+    "sci": "Pteridium esculentum"
+   },
+   {
+    "id": "red-tussock",
+    "common": "Red tussock",
+    "maori": "Wī",
+    "sci": "Chionochloa rubra"
+   },
+   {
+    "id": "other",
+    "common": "Other / not sure",
+    "maori": "",
+    "sci": ""
+   }
+  ]
+ },
+ "admin": {
+  "_about": "Links in the 'For coordinators' bar on the desktop map. Anyone can see the bar; the Sheet and handbook only open for people they are shared with.",
+  "links": [
+   {
+    "label": "Review records",
+    "url": "/review/"
+   },
+   {
+    "label": "Add a record",
+    "url": "/add/"
+   },
+   {
+    "label": "Explore in 3D",
+    "url": "/explore/"
+   },
+   {
+    "label": "Handbook",
+    "url": "https://claude.ai/artifact/TDQT1smK8Ev1RermkurcGT"
+   }
+  ],
+  "_todo": "Add the 'Records spreadsheet' link once the group's Google Sheet exists."
+ },
+ "embed_views": {
+  "_about": "Named views for /embed/?view=name.",
+  "access": {
+   "title": "Walking access in the Ruahine",
+   "base": "topo",
+   "center": [
+    176.094,
+    -39.886
+   ],
+   "zoom": 9.4,
+   "layers": [
+    "doc_park",
+    "wa_tracks",
+    "doc_huts"
+   ],
+   "available": [
+    "doc_tracks",
+    "wa_access_land",
+    "wa_road_parcels"
+   ],
+   "square": false,
+   "legend": true
+  },
+  "progress": {
+   "title": "Wilding pine clearance, Kashmir Road",
+   "base": "aerial",
+   "year": 2025,
+   "layers": [
+    "records"
+   ],
+   "tasks": [
+    "wilding-area"
+   ],
+   "legend": true
+  },
+  "then-1980": {
+   "title": "Kashmir Road block in 1980",
+   "base": "aerial",
+   "year": 1980,
+   "layers": [],
+   "lock": true,
+   "legend": false
+  },
+  "then-2006": {
+   "title": "The plantation in 2006",
+   "base": "aerial",
+   "year": 2006,
+   "layers": [],
+   "lock": true,
+   "legend": false
+  },
+  "now": {
+   "title": "Kashmir Road block, 2025–26",
+   "base": "aerial",
+   "year": 2025,
+   "layers": [
+    "records"
+   ],
+   "legend": true
+  }
+ }
 }

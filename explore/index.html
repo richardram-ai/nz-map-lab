@@ -53,8 +53,8 @@ html,body{margin:0;height:100%;background:#E1E8DC;font-family:var(--font);color:
   <p class="long">Google's photorealistic 3D view of the area, with the group's records as pins. Drag to move, Ctrl-drag to tilt and turn, scroll, pinch or use + − to zoom. Tap a pin for its card and Street View.</p>
   <div id="search"></div>
   <label><input type="checkbox" id="t-rec" checked> Our records</label>
-  <label><input type="checkbox" id="t-trees" checked> <span class="dot" style="background:#3f8f56"></span>Mapped trees (OpenStreetMap)</label>
-  <label><input type="checkbox" id="t-notable" checked> <span class="dot" style="background:#1d5e31;width:12px;height:12px"></span>Notable trees (council)</label>
+  <label><input type="checkbox" id="t-trees" checked> <span class="dot" style="background:#c47d14"></span>Huts (DOC)</label>
+  <label><input type="checkbox" id="t-notable" checked> <span class="dot" style="background:#b8334a;width:12px;height:12px"></span>Conifer sightings (iNaturalist)</label>
   <label><input type="checkbox" id="t-inat"> <span class="dot" style="background:#28699a"></span>Species sightings (iNaturalist)</label>
   <label><input type="checkbox" id="t-area" checked> The test area</label>
   <div class="row"><button class="btn" id="home" type="button">Back to the area</button><a href="/">2D map</a><a href="/add/">Add a record</a></div>
@@ -96,7 +96,10 @@ html,body{margin:0;height:100%;background:#E1E8DC;font-family:var(--font);color:
   }
   const home = (instant) => {
     const target = new Cesium.BoundingSphere(Cesium.Cartesian3.fromDegrees(centre[0], centre[1], 50), 10);
-    const offset = new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-40), 1450);
+    // Far enough back to see the whole focus area (about 1.4 km for a 1 km square)
+    const sqr = Array.isArray(area.square) && area.square.length === 2 ? area.square : null;
+    const span = sqr ? Math.max((sqr[1][0] - sqr[0][0]) * 111320 * Math.cos(centre[1] * Math.PI / 180), (sqr[1][1] - sqr[0][1]) * 110540) : 1000;
+    const offset = new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-40), Math.max(1450, span * 1.4));
     viewer.camera.flyToBoundingSphere(target, { offset, duration: instant ? 0 : 1.6 });
   };
   home(true);
@@ -167,11 +170,11 @@ html,body{margin:0;height:100%;background:#E1E8DC;font-family:var(--font);color:
   }
   $('rec').querySelector('.x').onclick = () => { $('rec').style.display = 'none'; };
 
-  // Public layers from the 2D map: OpenStreetMap trees, council notable trees, iNaturalist sightings
+  // Public layers from the 2D map: DOC huts, iNaturalist conifer sightings, iNaturalist sightings in the focus block
   const INATC = { Aves:'#28699a', Plantae:'#2c7a4b', Insecta:'#c47d14', Fungi:'#8a5a3c', Arachnida:'#6a4c9c', Reptilia:'#b8334a' };
   const layerDefs = [
-    { id:'trees', file:'osm_trees', size:8, colour:() => '#3f8f56' },
-    { id:'notable', file:'pncc_notable_trees', size:13, colour:() => '#1d5e31' },
+    { id:'trees', file:'doc_huts', size:10, colour:() => '#c47d14' },
+    { id:'notable', file:'inat_conifers', size:10, colour:() => '#b8334a' },
     { id:'inat', file:'inat_obs', size:8, colour:p => INATC[p.group] || '#7d8883' },
   ];
   const layerEnts = {};
@@ -193,8 +196,8 @@ html,body{margin:0;height:100%;background:#E1E8DC;font-family:var(--font);color:
   function showFeature(ent) {
     const p = ent._f.properties || {}, ll = ent._f.geometry.coordinates; let h = '';
     if (ent._layer === 'inat') h = `<span class="src">Species sighting · iNaturalist</span><b class="t">${esc(p.name)}</b><i>${esc(p.sci)}</i><br>${esc(p.date)} · ${p.grade === 'research' ? 'Research grade' : p.grade === 'needs_id' ? 'Needs ID' : 'Casual'}${p.obscured ? '<br>Location blurred' : ''}<br><a href="${esc(p.url)}" target="_blank" rel="noopener">Open on iNaturalist</a>`;
-    else if (ent._layer === 'notable') h = `<span class="src">Notable tree · Palmerston North City Council</span><b class="t">${esc(p.COMMON_NAME)}</b><i>${esc(p.BOTANICAL_NAME)}</i>`;
-    else h = `<span class="src">Mapped tree · OpenStreetMap</span><b class="t">Tree</b>${p.species ? esc(p.species) : 'Species not recorded'}<br><a href="${esc(p.osm)}" target="_blank" rel="noopener">Edit on OpenStreetMap</a>`;
+    else if (ent._layer === 'notable') h = `<span class="src">Conifer sighting · iNaturalist</span><b class="t">${esc(p.name)}</b><i>${esc(p.sci)}</i><br>${esc(p.date)}<br><a href="${esc(p.url)}" target="_blank" rel="noopener">Open on iNaturalist</a>`;
+    else h = `<span class="src">Hut · Department of Conservation</span><b class="t">${esc(String(p.name || 'Hut').replace(/\s*\(H\)\s*$/, ''))}</b>${esc(p.kind || '')}`;
     h += `<div style="margin-top:8px"><button class="btn" type="button" id="sv-go">Street View here</button></div>` + gLinks(ll);
     $('rec').querySelector('.body').innerHTML = h; $('rec').style.display = 'block';
     $('sv-go').onclick = () => openStreetView(ll);

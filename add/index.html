@@ -53,6 +53,8 @@ textarea{min-height:76px;resize:vertical}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
 .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .tasks{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.offline{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin-top:6px}
+.offline .hint{font-size:.78rem}
 .tasks button{font:inherit;text-align:left;padding:8px 10px;border-radius:8px;border:1.5px solid var(--rule);background:var(--bg);color:var(--ink);min-height:48px;display:flex;flex-direction:column;gap:1px}
 .tasks button b{font-size:.98rem} .tasks button span{font-size:.75rem;color:var(--muted)}
 .tasks button[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1.5px var(--accent)}
@@ -154,8 +156,9 @@ main>fieldset>legend+*{clear:both}
     <span class="chip" id="locchip"><i></i><span id="loctext">Finding your location…</span></span>
     <button class="btn" type="button" id="relocate">Use my location</button>
   </div>
+  <div class="offline" id="offlinebox" hidden><button class="btn" type="button" id="offline-btn">Save the map for offline use</button><span class="hint" id="offline-msg"></span></div>
   <p class="hint" id="lochint">The ± figure is how accurate your phone's GPS is. Under 10 m is good; wait a few seconds outdoors if it's higher.</p>
-  <div class="msg warn" id="outside" hidden>You're outside the mapped area. Records can only be saved inside the dashed square.</div>
+  <div class="msg warn" id="outside" hidden>You're outside the mapped area. Records can only be saved inside it.</div>
   </div>
 
   <fieldset>
@@ -215,7 +218,8 @@ main>fieldset>legend+*{clear:both}
   <section class="help" id="help" aria-labelledby="helptitle">
     <h2 id="helptitle">How to use this form</h2>
     <ol>
-      <li><b>Where is it?</b> Stand near the thing and let the pin settle. Drag the pin, or tap the map, if it isn't quite right. The dashed square is the area your group maps.</li>
+      <li><b>Where is it?</b> Stand near the thing and let the pin settle. Drag the pin, or tap the map, if it isn't quite right. The dashed box is the area your group works in most.</li>
+      <li><b>No signal where you're going?</b> Before you leave, with Wi‑Fi, tap <i>Save the map for offline use</i> under the map. It saves the aerial photos of the dashed box and the photo helper, so both work without signal. Records you save offline send when you're back in range.</li>
       <li><b>What are you recording?</b> Pick the job: a sighting, a planting, a trap check and so on.</li>
       <li><b>Details.</b> Tap the options that fit. Long lists have a search box, and the names you use most move to the top. Anything not marked optional is needed.</li>
       <li><b>Photos</b> are optional unless you're not sure what something is. For plants, a close-up of a leaf or flower works best.</li>
@@ -276,11 +280,14 @@ function deviceLabel(){
 }
 
 // ---- Map
+// Aerial tiles: the latest year in the settings (the tile function adds the LINZ key).
+function latestYear(a){ const y=Object.keys((a&&a.linz_layers)||{}).map(Number).sort((p,q)=>p-q); return y.length?y[y.length-1]:2024 }
+function aerTiles(a){ return location.origin+'/linz/aerial/{z}/{x}/{y}.png?year='+latestYear(a) }
 const map = new maplibregl.Map({
   container:'map', center:CONFIG.centre, zoom:CA ? (CA.zoom||16.3) : 5, attributionControl:{compact:true},
   maxBounds:CONFIG.area ? [[CONFIG.area.west,CONFIG.area.south],[CONFIG.area.east,CONFIG.area.north]] : undefined,
   style:{version:8,sources:{
-    aer:{type:'raster',tiles:[location.origin+'/linz/aerial/{z}/{x}/{y}.png?year=2024'],tileSize:256,minzoom:12,maxzoom:21,attribution:'© Toitū Te Whenua LINZ, CC BY 4.0'}},
+    aer:{type:'raster',tiles:[aerTiles(CA)],tileSize:256,minzoom:10,maxzoom:21,attribution:'© Toitū Te Whenua LINZ, CC BY 4.0'}},
     layers:[{id:'bg',type:'background',paint:{'background-color':'#e9ece9'}},{id:'aer',type:'raster',source:'aer'}]}
 });
 map.addControl(new maplibregl.NavigationControl({showCompass:false}),'top-right');
@@ -343,12 +350,13 @@ const recent=l=>{try{return JSON.parse(store.get(recentKey(l),'[]'))}catch(e){re
 function pushRecent(l,id){ if(!id||id==='other') return; const r=recent(l).filter(x=>x!==id); r.unshift(id); store.set(recentKey(l),JSON.stringify(r.slice(0,6))) }
 function listItems(name){ return (SETTINGS&&SETTINGS.lists&&SETTINGS.lists[name])||[] }
 function itemLabel(it){ return it.common||it.id }
+function phoneTasks(){ return ((SETTINGS&&SETTINGS.tasks)||[]).filter(t=>!t.desktop_only) }
 function renderTasks(){
-  const ts=(SETTINGS&&SETTINGS.tasks)||[];
+  const ts=phoneTasks();
   $('tasks').innerHTML=ts.map(t=>`<button type="button" data-t="${t.id}" aria-pressed="${task&&t.id===task.id}"><b>${esc(t.label)}</b><span>${esc(t.hint||'')}</span></button>`).join('');
 }
 function setTask(id){
-  const ts=(SETTINGS&&SETTINGS.tasks)||[]; task=ts.find(t=>t.id===id)||ts[0]||null; if(!task) return;
+  const ts=phoneTasks(); task=ts.find(t=>t.id===id)||ts[0]||null; if(!task) return;
   store.set('nzml-last-task',task.id); values={}; if(typeof SUG!=='undefined') SUG={};
   task.fields.forEach(fd=>{ if(fd.default!==undefined) values[fd.id]=fd.default });
   $('catbox').hidden=!!task.category;
@@ -481,12 +489,43 @@ function buildTitle(){
 }
 function updateTitlePreview(){ const t=buildTitle(); $('titleprev').textContent=t?`Will be saved as “${t}”`:'' }
 
+// ---- Offline: save aerial tiles for the focus block (or the square) and the photo helper, for use without signal.
+// Tiles go in their own cache, which the service worker checks before the network and never trims.
+const OFFLINE_CACHE='nzml-offline-v1';
+function offlineArea(){ const a=SETTINGS&&SETTINGS.area; if(!a) return null;
+  const b=a.focus&&a.focus.bounds?a.focus.bounds:(a.square?{west:a.square[0][0],south:a.square[0][1],east:a.square[1][0],north:a.square[1][1]}:null);
+  return b?{b,maxz:Math.min(18,(a.offline&&a.offline.max_zoom)||17),url:aerTiles(a),year:latestYear(a)}:null }
+function offlineTiles(o){ const out=[];
+  for(let z=12;z<=o.maxz;z++){ const n=2**z, X=l=>Math.floor((l+180)/360*n), Y=l=>Math.floor((1-Math.asinh(Math.tan(l*Math.PI/180))/Math.PI)/2*n);
+    for(let x=X(o.b.west);x<=X(o.b.east);x++) for(let y=Y(o.b.north);y<=Y(o.b.south);y++) out.push(o.url.replace('{z}',z).replace('{x}',x).replace('{y}',y)) }
+  return out }
+function renderOffline(){ const o=offlineArea(); if(!o||!('caches' in window)) return; $('offlinebox').hidden=false;
+  const done=JSON.parse(store.get('nzml-offline','null')||'null');
+  const n=offlineTiles(o).length;
+  $('offline-msg').textContent= done&&done.url===o.url ? `Saved ${new Date(done.at).toLocaleDateString('en-NZ',{day:'numeric',month:'short'})}: ${done.n} map tiles${done.helper?' and the photo helper':''}.` : `About ${n.toLocaleString('en-NZ')} map tiles (roughly ${Math.round(n*0.06)} MB) plus the photo helper. Use Wi‑Fi.` }
+$('offline-btn').addEventListener('click',async()=>{
+  const o=offlineArea(); if(!o) return; if(!navigator.onLine){ $('offline-msg').textContent='Connect to the internet first.'; return }
+  const btn=$('offline-btn'); btn.disabled=true; const list=offlineTiles(o); const c=await caches.open(OFFLINE_CACHE);
+  let done=0, failed=0, i=0;
+  const work=async()=>{ while(i<list.length){ const u=list[i++];
+      try{ if(!(await c.match(u))){ const r=await fetch(u); if(r.ok) await c.put(u,r); else failed++ } }catch(e){ failed++ }
+      done++; if(done%20===0||done===list.length) $('offline-msg').textContent=`Map tiles: ${done.toLocaleString('en-NZ')} of ${list.length.toLocaleString('en-NZ')}${failed?` (${failed} failed)`:''}…` } };
+  await Promise.all(Array.from({length:6},work));
+  let helper=false;
+  if(window.NZID&&idOn()){ try{ await NZID.load((f,t)=>{ $('offline-msg').textContent='Photo helper: '+t }); helper=true }catch(e){} }
+  store.set('nzml-offline',JSON.stringify({at:Date.now(),n:list.length-failed,url:o.url,helper}));
+  btn.disabled=false; btn.textContent='Update the offline map'; renderOffline();
+  if(failed) $('offline-msg').textContent+=` ${failed} tiles didn't download; tap again to retry.`;
+});
+
 async function loadSettings(){
   try{ const r=await fetch('/config/site.json',{cache:'no-cache'}); if(r.ok){ SETTINGS=await r.json(); store.set('nzml-settings',JSON.stringify(SETTINGS)) } }catch(e){}
   if(!SETTINGS){ try{ SETTINGS=JSON.parse(store.get('nzml-settings','null')) }catch(e){} }
   if(!SETTINGS){ $('fields').innerHTML='<p class="msg err">The organisation’s settings couldn’t be loaded. Connect to the internet once and reload this page.</p>'; return }
   const a=SETTINGS.area; if(a&&a.bounds){ const first=!CONFIG.area; CONFIG.area=a.bounds; CONFIG.square=a.square; CONFIG.centre=a.centre;
     map.setMaxBounds([[a.bounds.west,a.bounds.south],[a.bounds.east,a.bounds.north]]); if(!pos||first) map.jumpTo({center:a.centre,zoom:a.zoom||16.3});
+    const setAer=()=>{ const src=map.getSource('aer'); if(src&&src.setTiles&&src.tiles&&src.tiles[0]!==aerTiles(a)) src.setTiles([aerTiles(a)]) }; map.loaded()?setAer():map.once('load',setAer);
+    renderOffline();
     const upd=()=>map.getSource('sq')&&map.getSource('sq').setData(squareData()); map.loaded()?upd():map.once('load',upd);
     if(!pos) marker.setLngLat(a.centre) }
   if(SETTINGS.categories) { CONFIG.categories=SETTINGS.categories.map(c=>({id:c.id,label:c.label,color:c.colour})); renderCats() }

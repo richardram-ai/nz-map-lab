@@ -57,21 +57,20 @@ html,body{margin:0;height:100%;background:#E1E8DC;font-family:var(--font);color:
 <script>
 // ---- Layers available to embeds. id = the data file name in /data (or "records" for the organisation's own records).
 const LAYERS = {
-  records:            { label:'Our records', kind:'records' },
-  inat_obs:           { label:'Species sightings (iNaturalist)', kind:'circle', color:'#28699a', r:4.5, by:'group',
-                        match:{Aves:'#28699a',Plantae:'#2c7a4b',Insecta:'#c47d14',Fungi:'#8a5a3c',Arachnida:'#6a4c9c',Reptilia:'#b8334a'} },
-  pncc_notable_trees: { label:'Notable trees', kind:'circle', color:'#1d5e31', r:7 },
-  osm_trees:          { label:'Mapped trees', kind:'circle', color:'#3f8f56', r:3 },
-  lidar_canopy:       { label:'Tree canopy (LiDAR)', kind:'fill', color:'#4fa15e', opacity:.6, by:'band', match:{1:'#a6d78f',2:'#4fa15e',3:'#1d5e31'} },
-  lidar_contours:     { label:'Contours, 0.5 m', kind:'line', color:'#7a5a2c', width:1 },
-  hz_flood200:        { label:'200-year flood model', kind:'fill', color:'#3b82c4', opacity:.45 },
-  pncc_storm_mains:   { label:'Stormwater pipes', kind:'line', color:'#28699a', width:1.5 },
-  pncc_zones:         { label:'District Plan zones', kind:'outline', color:'#6a4c9c' },
-  pncc_parcels:       { label:'Property parcels', kind:'outline', color:'#8f7fb5', width:.5 },
-  pncc_heritage:      { label:'Heritage sites', kind:'circle', color:'#6a4c9c', r:5 },
-  pncc_playgrounds:   { label:'Playgrounds', kind:'circle', color:'#c47d14', r:5 },
-  pncc_cycle:         { label:'Cycle network', kind:'line', color:'#1f8a8a', width:2.5 },
-  hz_liquefaction:    { label:'Liquefaction', kind:'fill', color:'#a8661a', opacity:.15 },
+  records:          { label:'Our records', kind:'records' },
+  doc_park:         { label:'Ruahine Forest Park', kind:'outline', color:'#2c7a4b', width:2.5 },
+  wa_tracks:        { label:'Tracks', kind:'line', color:'#b8334a', width:2 },
+  doc_tracks:       { label:'DOC tracks', kind:'line', color:'#8a5a3c', width:1.5 },
+  doc_huts:         { label:'Huts', kind:'circle', color:'#c47d14', r:5.5 },
+  doc_campsites:    { label:'Campsites', kind:'circle', color:'#1f8a8a', r:5 },
+  wa_access_land:   { label:'Public access conservation land', kind:'fill', color:'#2c7a4b', opacity:.15 },
+  wa_road_parcels:  { label:'Unformed legal roads', kind:'fill', color:'#6a4c9c', opacity:.3 },
+  wa_easements:     { label:'Walking access easements', kind:'line', color:'#6a4c9c', width:2.5 },
+  inat_conifers:    { label:'Conifer sightings (iNaturalist)', kind:'circle', color:'#b8334a', r:5 },
+  inat_obs:         { label:'Species sightings (iNaturalist)', kind:'circle', color:'#28699a', r:4.5, by:'group',
+                      match:{Aves:'#28699a',Plantae:'#2c7a4b',Insecta:'#c47d14',Fungi:'#8a5a3c',Arachnida:'#6a4c9c',Reptilia:'#b8334a'} },
+  lidar_canopy:     { label:'Tree canopy, 2023–24 (LiDAR)', kind:'fill', color:'#4fa15e', opacity:.55, by:'band', match:{1:'#a6d78f',2:'#4fa15e',3:'#1d5e31'} },
+  lidar_contours:   { label:'Contours, 20 m', kind:'line', color:'#7a5a2c', width:1 },
 };
 const STREET = ['osm_green','osm_buildings','osm_roads','osm_paths'];
 const $ = id => document.getElementById(id);
@@ -85,7 +84,8 @@ function showMsg(t){ $('msg').textContent = t; $('msg').hidden = false; }
   const q = new URLSearchParams(location.search);
   const view = (cfg.embed_views || {})[q.get('view')] || {};
   // Settings: defaults, then the named view, then anything in the address.
-  const S = { base:'aerial', year:2024, zoom:cfg.area.zoom, center:cfg.area.centre, layers:['records'], available:[], legend:true, lock:false,
+  const years = Object.keys(cfg.area.linz_layers || {}).map(Number).sort((a, b) => a - b);
+  const S = { base:'aerial', year:years[years.length - 1] || 2024, zoom:cfg.area.zoom, center:cfg.area.centre, layers:['records'], available:[], legend:true, lock:false,
               tasks:[], cats:[], from:'', to:'', unconfirmed:'show', open:'', title:'', square:true, ...view };
   for (const k of ['base','title','open','from','to','unconfirmed']) if (q.has(k)) S[k] = q.get(k);
   for (const k of ['year','zoom']) if (q.has(k)) S[k] = Number(q.get(k));
@@ -107,8 +107,13 @@ function showMsg(t){ $('msg').textContent = t; $('msg').hidden = false; }
     style.layers.push({ id:'aer', type:'raster', source:'aer', paint:{ 'raster-fade-duration':0 } });
     style.sources.credit = { type:'geojson', data:{ type:'FeatureCollection', features:[] }, attribution:'Aerial ' + S.year + ' © Toitū Te Whenua LINZ, CC BY 4.0' };
   } else if (S.base === 'aerial') {
-    style.sources.aer = { type:'raster', tiles:[location.origin + '/linz/aerial/{z}/{x}/{y}.png?year=' + (S.year || 2024)], tileSize:256, minzoom:12, maxzoom:21,
+    style.sources.aer = { type:'raster', tiles:[location.origin + '/linz/aerial/{z}/{x}/{y}.png?year=' + S.year], tileSize:256, minzoom:10, maxzoom:21,
                           attribution:'Aerial ' + (S.year || 2024) + ' © Toitū Te Whenua LINZ, CC BY 4.0' };
+    style.layers.push({ id:'aer', type:'raster', source:'aer' });
+  } else if ((S.base === 'topo' || S.base === 'sat') && (cfg.area.base_layers || {})[S.base]) {
+    // Topo50 or 10 m satellite, from LINZ through the same tile function
+    style.sources.aer = { type:'raster', tiles:[location.origin + '/linz/aerial/{z}/{x}/{y}.png?src=' + S.base], tileSize:256, minzoom:8, maxzoom:S.base === 'topo' ? 18 : 15,
+                          attribution:(S.base === 'topo' ? 'Topo50' : 'Satellite') + ' © Toitū Te Whenua LINZ, CC BY 4.0' };
     style.layers.push({ id:'aer', type:'raster', source:'aer' });
   }
   const map = new maplibregl.Map({ container:'map', style, center:S.center, zoom:S.zoom, attributionControl:{ compact:true }, maxZoom: hist ? 18.5 : 22,
@@ -174,10 +179,13 @@ function showMsg(t){ $('msg').textContent = t; $('msg').hidden = false; }
       h += `<span class="mm">${[p.by ? 'By ' + esc(p.by) : '', when].filter(Boolean).join(' · ')}</span>`;
       return h;
     }
-    const L = LAYERS[layerId] || {}; let name = p.name || p.COMMON_NAME || p.BLDG_OBJECT || p.ZONE || p.PLAYGROUND_NAME || p.ROAD_NAME || p.label || '';
-    if (layerId === 'inat_obs') return `<span class="src">${esc(L.label)}</span><b>${esc(p.name)}</b><i>${esc(p.sci)}</i><br>${esc(p.date)}<br><a href="${esc(p.url)}" target="_blank" rel="noopener">Open on iNaturalist</a>`;
+    const L = LAYERS[layerId] || {}; let name = p.name || p.common_name || p.label || '';
+    if (layerId === 'doc_huts') name = String(p.name || 'Hut').replace(/\s*\(H\)\s*$/, '');
+    if (layerId === 'wa_tracks') return `<span class="src">${esc(L.label)}</span><b>${esc(p.name || 'Track')}</b>${[p.walk, p.dogs ? 'Dogs: ' + p.dogs : '', p.status].filter(v => v && v !== 'Unknown').map(esc).join('<br>')}`;
+    if (layerId === 'wa_road_parcels') name = 'Legal road (may be unformed)';
+    if (layerId === 'inat_obs' || layerId === 'inat_conifers') return `<span class="src">${esc(L.label)}</span><b>${esc(p.name)}</b><i>${esc(p.sci)}</i><br>${esc(p.date)}<br><a href="${esc(p.url)}" target="_blank" rel="noopener">Open on iNaturalist</a>`;
     if (layerId === 'lidar_contours') name = 'Ground height ' + p.elev + ' m';
-    if (layerId === 'lidar_canopy') name = 'Tree canopy, ' + p.label + ' tall';
+    if (layerId === 'lidar_canopy') name = 'Tree canopy, ' + p.label + ' tall (2023–24)';
     return `<span class="src">${esc(L.label)}</span><b>${esc(name || L.label)}</b>`;
   }
 
@@ -220,7 +228,7 @@ function showMsg(t){ $('msg').textContent = t; $('msg').hidden = false; }
   }
 
   // ---- Pop-ups
-  const clickable = () => Object.values(added).flat().filter(l => map.getLayer(l) && map.getLayoutProperty(l, 'visibility') !== 'none' && !['pncc_parcels','pncc_zones','hz_liquefaction','hz_flood200'].includes(l));
+  const clickable = () => Object.values(added).flat().filter(l => map.getLayer(l) && map.getLayoutProperty(l, 'visibility') !== 'none' && !['doc_park','wa_access_land','lidar_canopy'].includes(l));
   map.on('click', e => {
     const fs = map.queryRenderedFeatures([[e.point.x - 5, e.point.y - 5], [e.point.x + 5, e.point.y + 5]], { layers:clickable() });
     if (!fs.length) return;

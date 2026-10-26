@@ -1,0 +1,987 @@
+<title>Ruahine Map Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="/fonts/fonts.css">
+<style>
+/*__MAPLIBRE_CSS__*/
+</style>
+<style>
+/* Layout: print-first document — details block, map + layer list side by side (stacking on phones), then the findings that feed the scoping work. White page, colour carried by rules, swatches and text. */
+:root{
+  --bg:#F5F7F3;
+  --card:#FCFDFB;
+  --sage:#E1E8DC;
+  --ink:#303A2E;
+  --muted:#5f6b5a;
+  --rule:#B8C5B0;
+  --soft:#E1E8DC;
+  --accent:#56664D;
+  --accent-ink:#FCFDFB;
+  --water:#28699a;
+  --hazard:#a8661a;
+  --plan:#6a4c9c;
+  --alert:#b8334a;
+  --good:#2c7a4b; --coarse:#a8661a; --empty:#7d8883;
+  --font-body:"Atkinson Hyperlegible Next","Segoe UI",system-ui,-apple-system,Arial,sans-serif;
+  --font-display:"Atkinson Hyperlegible Next","Segoe UI",system-ui,-apple-system,Arial,sans-serif;
+  --font-mono:"Atkinson Hyperlegible Mono",ui-monospace,Consolas,"Liberation Mono",monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#151a14;--card:#1c2219;--sage:#262e22;--ink:#e3e8df;--muted:#a2ad9c;--rule:#3a4535;--soft:#262e22;
+  --accent:#9db08f;--accent-ink:#151a14;--water:#6aa8d6;--hazard:#d89a4c;--plan:#a68bd6;--alert:#e66a7f;
+  --good:#5fb882;--coarse:#d89a4c;--empty:#8d9a94;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#151a14;--card:#1c2219;--sage:#262e22;--ink:#e3e8df;--muted:#a2ad9c;--rule:#3a4535;--soft:#262e22;
+  --accent:#9db08f;--accent-ink:#151a14;--water:#6aa8d6;--hazard:#d89a4c;--plan:#a68bd6;--alert:#e66a7f;
+  --good:#5fb882;--coarse:#d89a4c;--empty:#8d9a94;color-scheme:dark}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+#layers{display:flex;flex-direction:column;gap:16px}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px 48px}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+a{color:var(--water)}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h1,h2,h3{font-family:var(--font-display);text-wrap:balance;margin:0;line-height:1.2}
+h1{font-size:2rem;font-weight:700;letter-spacing:-.01em}
+h2{font-size:1.3rem;font-weight:700;padding-bottom:6px;border-bottom:2px solid var(--accent)}
+h3{font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700}
+p{margin:0;max-width:68ch}
+.mono{font-family:var(--font-mono);font-size:.85em}
+
+/* header */
+header{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px 32px;align-items:end;padding-bottom:16px;border-bottom:1px solid var(--rule)}
+.lede{display:flex;flex-direction:column;gap:8px}
+.lede p{color:var(--muted)}
+.details{border-left:3px solid var(--accent);padding:4px 0 4px 12px;display:grid;grid-template-columns:auto auto;gap:2px 14px;font-size:.85rem}
+.details dt{color:var(--muted)} .details dd{margin:0;font-weight:600}
+
+/* main grid */
+.workspace{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px;align-items:start}
+.mapcol{display:flex;flex-direction:column;gap:10px;min-width:0}
+#map{width:100%;aspect-ratio:1/1;max-height:78vh;border:1px solid var(--rule);background:#f4f5f3}
+.mapwrap{position:relative}
+#map2{position:absolute;inset:0;pointer-events:none;border:1px solid var(--rule)}
+#map2 .maplibregl-control-container{display:none}
+.swipe{position:absolute;top:0;bottom:0;width:0;border-left:2px solid #ffffff;box-shadow:0 0 0 1px rgba(0,0,0,.35);z-index:5;cursor:ew-resize}
+.swipe button{position:absolute;top:50%;left:-15px;width:28px;height:28px;margin-top:-14px;border-radius:50%;padding:0;background:#ffffff;color:#1b2722;border:1px solid #9aa49f;font-size:.8rem;cursor:ew-resize;touch-action:none}
+.yeartag{position:absolute;top:8px;z-index:4;font:600 .78rem var(--font-body);background:#ffffff;color:#1b2722;padding:2px 7px;border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,.2);pointer-events:none}
+.timeline{display:flex;flex-direction:column;gap:10px;border-top:2px solid var(--accent);padding-top:10px}
+.tl-row{display:grid;grid-template-columns:150px minmax(0,1fr);gap:6px 14px;align-items:start}
+.tl-label{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700;padding-top:6px}
+.years{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.years button{font-variant-numeric:tabular-nums;padding:4px 9px}
+.years button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);font-weight:700;box-shadow:inset 0 -2px 0 var(--accent)}
+.years .sep{width:1px;height:22px;background:var(--rule);margin:0 6px}
+.years .histlab{font-size:.7rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-right:2px}
+.years button.old{border-style:dashed}
+.years button.cmp-on{border-color:var(--alert);color:var(--alert);font-weight:600}
+.years select{font:inherit;font-size:.82rem;padding:3px 4px;border:1px solid var(--rule);background:var(--bg);color:var(--ink)}
+.hist{position:relative}
+.hist svg{display:block;width:100%;height:64px;overflow:visible}
+.hist .bar{fill:var(--accent)} .hist .bar.out{fill:var(--rule)}
+.hist .axis{font-size:10px;fill:var(--muted);font-variant-numeric:tabular-nums}
+.hist .base{stroke:var(--rule);stroke-width:1}
+.tip{position:absolute;pointer-events:none;background:var(--bg);color:var(--ink);border:1px solid var(--rule);font-size:.75rem;padding:3px 7px;border-radius:3px;white-space:nowrap;transform:translate(-50%,-110%);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.dual{position:relative;height:24px}
+.dual input{position:absolute;left:0;right:0;width:100%;top:2px;margin:0;pointer-events:none;-webkit-appearance:none;appearance:none;background:transparent;height:20px}
+.dual input::-webkit-slider-thumb{pointer-events:auto;-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--bg);border:2px solid var(--accent);cursor:pointer}
+.dual input::-moz-range-thumb{pointer-events:auto;width:14px;height:14px;border-radius:50%;background:var(--bg);border:2px solid var(--accent);cursor:pointer}
+.dual input::-webkit-slider-runnable-track{height:2px;background:transparent}
+.dual .track{position:absolute;left:8px;right:8px;top:11px;height:2px;background:var(--rule)}
+.dual .fill{position:absolute;top:11px;height:2px;background:var(--accent)}
+.tl-ctrl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:.84rem}
+.tl-ctrl output{font-variant-numeric:tabular-nums;font-weight:600}
+@media (max-width:600px){.tl-row{grid-template-columns:minmax(0,1fr)}}
+@media print{#map2,.swipe,.yeartag{display:none!important}}
+.basebar{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;font-size:.85rem}
+.basebar label{display:flex;gap:6px;align-items:center;cursor:pointer}
+.basebar input[type=text]{font:inherit;font-size:.8rem;padding:4px 6px;border:1px solid var(--rule);background:var(--bg);color:var(--ink);width:15ch}
+.notice{font-size:.82rem;color:var(--hazard);border-left:3px solid var(--hazard);padding:2px 0 2px 10px}
+.drawbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.85rem}
+.drawbar .lbl{color:var(--muted);margin-right:4px}
+button{font:inherit;font-size:.85rem;padding:5px 11px;border:1px solid var(--rule);background:var(--bg);color:var(--ink);cursor:pointer;border-radius:3px}
+button:hover{border-color:var(--accent)}
+button.on{border-color:var(--alert);color:var(--alert);font-weight:600}
+button.primary{border-color:var(--accent);color:var(--accent);font-weight:600}
+.hint{font-size:.8rem;color:var(--muted)}
+
+/* layer panel */
+.panel{display:flex;flex-direction:column;gap:14px;min-width:0}
+.group{display:flex;flex-direction:column;gap:4px}
+.group h3{padding-bottom:3px;border-bottom:1px solid var(--rule);margin-bottom:2px}
+.lyr{display:grid;grid-template-columns:18px 16px minmax(0,1fr) auto;gap:8px;align-items:center;font-size:.86rem;padding:2px 0}
+.lyr input{margin:0}
+.lyr .sw{width:14px;height:14px;border:1.5px solid var(--sw);background:color-mix(in srgb,var(--sw) 35%,transparent)}
+.lyr .sw.pt{border-radius:50%;background:var(--sw)}
+.lyr .sw.ln{height:0;border-width:0 0 3px 0;border-radius:0;background:none}
+.lyr .n{font-variant-numeric:tabular-nums;color:var(--muted);font-size:.8rem}
+.lyr.empty{color:var(--empty)} .lyr.empty .sw{opacity:.4}
+.legend-inat{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:.75rem;color:var(--muted);padding-left:42px}
+.legend-inat span::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--c);margin-right:4px}
+
+/* annotations */
+.annform{display:flex;flex-direction:column;gap:6px;border:1px solid var(--alert);padding:10px}
+.annform label{font-size:.8rem;color:var(--muted);display:flex;flex-direction:column;gap:2px}
+.annform input,.annform select,.annform textarea,.io textarea{font:inherit;font-size:.85rem;padding:5px 7px;border:1px solid var(--rule);background:var(--bg);color:var(--ink)}
+.annlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.annlist li{display:grid;grid-template-columns:12px minmax(0,1fr) auto;gap:8px;align-items:start;font-size:.84rem;padding:4px 0;border-bottom:1px dotted var(--rule)}
+.annlist .dot{width:10px;height:10px;border-radius:50%;margin-top:5px;background:var(--c)}
+.annlist .t{font-weight:600} .annlist .m{color:var(--muted);font-size:.78rem}
+.annlist .acts{display:flex;gap:4px} .annlist button{padding:1px 6px;font-size:.75rem}
+.io{display:flex;flex-direction:column;gap:6px}
+.sharedbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.8rem;color:var(--muted)}
+.sharedbar input{font:inherit;font-size:.82rem;padding:4px 6px;border:1px solid var(--rule);background:var(--bg);color:var(--ink);width:16ch}
+#a-msg:empty{display:none} #a-msg{color:var(--alert)}
+.io textarea{min-height:90px;font-family:var(--font-mono);font-size:.72rem}
+.io .row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+
+/* findings */
+.cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+.cols > div{display:flex;flex-direction:column;gap:6px;min-width:0}
+.cols .k{font-size:1.9rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1}
+.cols .k.g{color:var(--good)} .cols .k.c{color:var(--coarse)} .cols .k.e{color:var(--empty)}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.84rem;min-width:760px}
+th{text-align:left;font-size:.72rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);border-bottom:2px solid var(--ink);padding:6px 8px}
+td{border-bottom:1px solid var(--rule);padding:7px 8px;vertical-align:top}
+td.num{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.chip{display:inline-block;font-size:.72rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:1px 6px;border:1.5px solid currentColor;border-radius:2px;white-space:nowrap}
+.chip.good{color:var(--good)} .chip.coarse{color:var(--coarse)} .chip.empty{color:var(--empty)}
+.lic-warn{color:var(--alert);font-weight:600}
+.gaps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 28px;margin:0;padding:0;list-style:none}
+.gaps li{border-left:3px solid var(--plan);padding-left:12px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.gaps li b{font-size:.92rem}
+.gaps li span{font-size:.86rem;color:var(--muted)}
+section{display:flex;flex-direction:column;gap:12px}
+footer{font-size:.78rem;color:var(--muted);border-top:1px solid var(--rule);padding-top:10px}
+
+.adminbar{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;font-size:.88rem;border:1px solid var(--rule);border-radius:10px;padding:10px 14px;background:var(--card)}
+.adminbar .lbl{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;font-weight:700;color:var(--accent)}
+.adminbar .links{display:flex;flex-wrap:wrap;gap:6px}
+.adminbar a{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border:1px solid var(--rule);border-radius:6px;background:var(--card);color:var(--ink);text-decoration:none}
+.adminbar a:hover{background:var(--sage);border-color:var(--accent)}
+.adminbar a .n{font-variant-numeric:tabular-nums;font-size:.75rem;font-weight:700;color:var(--card);background:var(--hazard);border-radius:9px;padding:0 6px}
+.embedbox{border:1px solid var(--rule);padding:8px 12px;display:flex;flex-direction:column;gap:8px}
+.embedbox summary{cursor:pointer;font-weight:700;color:var(--accent)}
+.embedbox[open]{gap:8px}
+.emb-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 16px;font-size:.84rem}
+.emb-grid label{display:flex;flex-direction:column;gap:2px}
+.emb-grid label.ck{flex-direction:row;gap:6px;align-items:center}
+.emb-grid input[type=text]{font:inherit;font-size:.85rem;padding:5px 7px;border:1px solid var(--rule);background:var(--bg);color:var(--ink)}
+.emb-avail{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:.8rem;color:var(--muted)}
+.emb-avail label{display:flex;gap:4px;align-items:center}
+.embedbox textarea{font-family:var(--font-mono);font-size:.74rem;padding:6px;border:1px solid var(--rule);background:var(--bg);color:var(--ink);width:100%}
+@media (max-width:600px){.emb-grid{grid-template-columns:minmax(0,1fr)}}
+.maplibregl-popup-content{font-family:var(--font-body);font-size:.82rem;color:#1b2722;padding:10px 12px;max-width:260px}
+.maplibregl-popup-content b{display:block;font-size:.9rem;margin-bottom:2px}
+.maplibregl-popup-content .pp{display:flex;gap:4px;margin:6px 0}
+.maplibregl-popup-content .pp img{width:76px;height:76px;object-fit:cover;border-radius:4px;display:block}
+.maplibregl-popup-content .mm{display:block;color:#5a6862;font-size:.72rem;margin-top:4px}
+.phonebox{display:flex;gap:10px;align-items:center;border:1px solid var(--rule);padding:8px 10px;font-size:.82rem}
+.phonebox #qr{flex:none;width:84px;height:84px;background:#fff;padding:4px}
+.phonebox #qr img,.phonebox #qr canvas{width:76px!important;height:76px!important}
+.maplibregl-popup-content .glinks{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:6px;padding-top:6px;border-top:1px solid #E1E8DC;font-size:.74rem}
+.maplibregl-popup-content .glinks a{color:#56664D;text-decoration:none;white-space:nowrap}.maplibregl-popup-content .glinks a::after{content:' ↗';font-size:.9em}
+.maplibregl-popup-content .src{color:#5a6862;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em}
+.maplibregl-ctrl-attrib{font-size:10px}
+
+/* ---- theme: soft sage surfaces ---- */
+.mapcol>.basebar,.timeline,.drawbar,.embedbox,.panel,.cols>div,.tablewrap,.gaps li{background:var(--card)}
+.mapcol>.basebar,.drawbar{border:1px solid var(--rule);border-radius:10px;padding:8px 12px}
+.timeline{border:1px solid var(--rule);border-top:3px solid var(--accent);border-radius:10px;padding:12px 14px}
+.embedbox{border-radius:10px;padding:10px 14px}
+.panel{border:1px solid var(--rule);border-radius:12px;padding:14px 16px}
+.group h3{color:var(--accent)}
+.cols>div{border:1px solid var(--rule);border-radius:10px;padding:14px 16px}
+.tablewrap{border:1px solid var(--rule);border-radius:10px;padding:6px 10px}
+.gaps li{border-radius:0 8px 8px 0;padding:8px 12px}
+#map,#map2{border-color:var(--rule);border-radius:10px;overflow:hidden}
+#map{background:var(--sage)}
+header{border-bottom-color:var(--rule)}
+h2{border-bottom-color:var(--rule);color:var(--ink)}
+h2::after{content:"";display:block;width:56px;height:3px;background:var(--accent);margin-top:6px;margin-bottom:-9px}
+button{background:var(--card);border-color:var(--rule);border-radius:6px;transition:background .15s,border-color .15s}
+button:hover{background:var(--sage);border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+button.primary:hover{background:color-mix(in srgb,var(--accent) 88%,black)}
+.years button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);box-shadow:none}
+input[type=text],textarea,select{background:var(--card)!important;border-color:var(--rule)!important;border-radius:6px}
+.annlist li{border-bottom-color:var(--sage)}
+.phonebox{background:var(--sage);border:none;border-radius:10px}
+.maplibregl-popup-content{background:#FCFDFB;color:#303A2E;border-radius:10px;box-shadow:0 2px 10px rgba(48,58,46,.18)}
+.maplibregl-popup-tip{border-top-color:#FCFDFB!important;border-bottom-color:#FCFDFB!important}
+th{border-bottom-color:var(--accent)}
+input[type=checkbox],input[type=radio]{accent-color:var(--accent)}
+@media print{body,.mapcol>.basebar,.timeline,.drawbar,.panel,.cols>div,.tablewrap,.gaps li,.phonebox{background:#fff!important}}
+
+@media (max-width:900px){
+  .workspace{display:flex;flex-direction:column;gap:10px;align-items:stretch}
+  /* phones and narrow windows: map tools, then the layer panel, then the embed box */
+  .mapcol{display:contents}
+  .mapcol>*,.workspace>.panel{order:1;flex:none;min-width:0}
+  .workspace>.panel{order:2}
+  .mapcol>.embedbox{order:3}
+  .cols{grid-template-columns:minmax(0,1fr)}
+  .gaps{grid-template-columns:minmax(0,1fr)}
+  header{grid-template-columns:minmax(0,1fr)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@media print{
+  @page{size:A4 portrait;margin:12mm}
+  body{padding:0;font-size:10.5pt}
+  .no-print,.maplibregl-ctrl-top-right,.io,.annform{display:none!important}
+  .workspace{grid-template-columns:minmax(0,1fr) 62mm;gap:8mm}
+  #map{max-height:none;height:auto}
+  .cols{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .gaps{grid-template-columns:repeat(2,minmax(0,1fr))}
+  section{break-inside:auto} tr,.gaps li{break-inside:avoid}
+  table{min-width:0}
+  h2{break-after:avoid}
+  .pagebreak{break-before:page}
+  a{color:var(--ink);text-decoration:none}
+}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="lede">
+    <h3>Mapping project · Ruahine test group</h3>
+    <h1>Ruahine Map Lab</h1>
+    <p>Walking access across <a href="https://www.doc.govt.nz/parks-and-recreation/places-to-go/manawatu-whanganui/places/ruahine-forest-park/" target="_blank" rel="noopener">Ruahine Forest Park</a> (95,000&nbsp;ha), and a detailed block at the end of Kashmir Road, Ashley Clinton, where wilding pines are being cleared. The block has aerial photos from 1980 to 2025–26 and 2023–24 LiDAR. Draw the work area and the parts that are cleared, not yet cleared or growing back; field records come from <a href="/add/">the phone form</a>.</p>
+  </div>
+  <dl class="details">
+    <dt>Document Name</dt><dd>Ruahine Map Lab</dd>
+    <dt>Author</dt><dd>Richard Ram</dd>
+    <dt>Date</dt><dd>26.10.26</dd>
+  </dl>
+</header>
+
+<div class="workspace">
+  <div class="mapcol">
+    <div class="basebar no-print" role="radiogroup" aria-label="Base map">
+      <span class="hint">Base map:</span>
+      <label><input type="radio" name="base" id="base-aerial" value="aerial" checked> Aerial photo (year below)</label>
+      <label><input type="radio" name="base" id="base-topo" value="topo"> Topo map</label>
+      <label><input type="radio" name="base" id="base-sat" value="sat"> Satellite, 10 m</label>
+      <label><input type="radio" name="base" id="base-ofm" value="ofm"> Street map</label>
+      <span class="hint" style="margin-left:auto;display:flex;gap:6px"><button type="button" id="go-focus">Kashmir Road block</button><button type="button" id="go-park">Whole park</button></span>
+    </div>
+    <p class="notice no-print" id="tilenote" hidden></p>
+    <canvas id="cv-aerial" hidden></canvas><canvas id="cv-elev" hidden></canvas><canvas id="cv-b" hidden></canvas>
+    <div class="mapwrap" id="mapwrap"><div id="map" role="region" aria-label="Map of Ruahine Forest Park and the Kashmir Road block"></div>
+      <div id="map2" hidden aria-hidden="true"></div>
+      <div class="swipe" id="swipe" hidden><button type="button" id="swipe-btn" aria-label="Drag to compare years">⇔</button></div>
+      <span class="yeartag" id="tagA" hidden></span><span class="yeartag" id="tagB" hidden></span></div>
+    <section class="timeline" aria-label="Timeline">
+      <div class="tl-row">
+        <span class="tl-label">Aerial photo year</span>
+        <div class="years" id="years" role="group" aria-label="Aerial photo year"></div>
+      </div>
+      <div class="tl-row">
+        <span class="tl-label">Sightings and notes</span>
+        <div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+          <div class="hist" id="hist"></div>
+          <div class="dual no-print" id="dual"><span class="track"></span><span class="fill" id="dualfill"></span>
+            <input type="range" id="t-from" aria-label="From"><input type="range" id="t-to" aria-label="To"></div>
+          <div class="tl-ctrl"><output id="t-read"></output>
+            <span class="no-print" style="display:flex;gap:6px;margin-left:auto"><button type="button" id="t-play">▶ Play by year</button><button type="button" id="t-all">Show all dates</button></span></div>
+        </div>
+      </div>
+    </section>
+    <div class="drawbar no-print">
+      <span class="lbl">Draw:</span>
+      <button id="d-point" type="button">Point</button>
+      <button id="d-line" type="button">Line</button>
+      <button id="d-area" type="button">Area</button>
+      <button id="d-finish" type="button" class="primary" hidden>Finish shape</button>
+      <button id="d-cancel" type="button" hidden>Cancel</button>
+      <span class="hint" id="d-hint">Pick a tool, then click the map.</span>
+    </div>
+    <details class="embedbox no-print" id="embedbox">
+      <summary>Get embed code</summary>
+      <p class="hint">Set the map up the way you want it (position, zoom, layers, photo year, dates), then copy the code into a web page. The embed shows the layers that are on now; tick extra layers to offer them in its legend, switched off.</p>
+      <div class="emb-grid">
+        <label>Title shown on the map <input type="text" id="emb-title" maxlength="80" placeholder="Optional"></label>
+        <label class="ck"><input type="checkbox" id="emb-legend" checked> Show a layer legend</label>
+        <label class="ck"><input type="checkbox" id="emb-lock"> Lock the view (no panning or zooming)</label>
+        <label class="ck"><input type="checkbox" id="emb-open"> <span id="emb-open-lab">Open a record's card: click one on the map first</span></label>
+        <label class="ck"><input type="checkbox" id="emb-hide"> Hide records that need an ID check</label>
+      </div>
+      <div class="emb-avail" id="emb-avail"></div>
+      <label class="hint" for="emb-url">Link</label>
+      <textarea id="emb-url" readonly rows="2"></textarea>
+      <label class="hint" for="emb-code">Embed code</label>
+      <textarea id="emb-code" readonly rows="3"></textarea>
+      <div class="row" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><button type="button" id="emb-copy-url">Copy link</button><button type="button" id="emb-copy-code" class="primary">Copy embed code</button><a id="emb-preview" target="_blank" rel="noopener">Preview ↗</a><span class="hint" id="emb-msg"></span></div>
+      <p class="hint" id="emb-views"></p>
+    </details>
+  </div>
+
+  <aside class="panel" aria-label="Layers">
+    <div id="layers"></div>
+
+    <div class="group">
+      <h3>Records and wilding areas</h3>
+      <form class="annform" id="annform" hidden>
+        <label>Record type<select id="a-task"></select></label>
+        <label>Title<input id="a-title" maxlength="80" placeholder="Optional for a wilding area"></label>
+        <div id="a-fields" style="display:flex;flex-direction:column;gap:6px"></div>
+        <label id="a-cat-wrap">Category<select id="a-cat"></select></label>
+        <label>Note<textarea id="a-note" rows="2" maxlength="400"></textarea></label>
+        <label id="a-by-wrap" hidden>Your name<input id="a-by" maxlength="60" autocomplete="name"></label>
+        <p class="hint" id="a-msg" role="status"></p>
+        <div class="row" style="display:flex;gap:6px"><button class="primary" type="submit">Save</button><button type="button" id="a-discard">Discard</button></div>
+      </form>
+      <ul class="annlist" id="annlist"></ul>
+      <p class="hint" id="annstore" role="status"></p>
+      <div class="phonebox no-print" id="phonebox" hidden><div id="qr" aria-hidden="true"></div><span>Recording in the field? Open <a id="phonelink" href="/add/">the phone form</a> on your phone, or scan this code. It uses your location and takes photos.</span></div>
+      <p class="hint no-print" id="reviewlink" hidden><a href="/review/">Review records</a><span id="reviewn"></span></p>
+      <div class="sharedbar no-print" id="sharedbar" hidden>
+        <label for="a-code">Editing code</label><input id="a-code" type="password" autocomplete="off" placeholder="Needed to add or delete">
+        <button type="button" id="a-refresh">Refresh</button>
+      </div>
+      <div class="io">
+        <div class="row">
+          <button type="button" id="io-export">Show as GeoJSON</button>
+          <button type="button" id="io-copy" hidden>Copy</button>
+          <button type="button" id="io-import">Load pasted GeoJSON</button>
+          <label class="hint" style="display:flex;gap:4px;align-items:center">or file <input type="file" id="io-file" accept=".geojson,.json,application/json" style="font-size:.75rem;max-width:150px"></label>
+        </div>
+        <textarea id="io-text" aria-label="GeoJSON for annotations" placeholder="Paste GeoJSON here to load it, or press Show as GeoJSON to copy your annotations out."></textarea>
+        <p class="hint" id="io-msg"></p>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<nav class="adminbar no-print" id="adminbar" aria-label="Coordinator links" hidden>
+  <span class="lbl">For coordinators</span>
+  <span class="links" id="adminlinks"></span>
+</nav>
+
+<section>
+  <h2>The wilding pine work</h2>
+  <p>Totals from the areas drawn on the map. Draw the whole work area first, then the parts inside it that are cleared, not yet cleared, or have pines coming back.</p>
+  <div class="cols" id="tally"></div>
+</section>
+
+<section class="pagebreak">
+  <h2>Layer by layer</h2>
+  <p>Who publishes each layer and the terms you can reuse it under. Park‑wide layers cover the forest park and about 3&nbsp;km around it; the LiDAR, the older aerial photos and the species sightings cover the Kashmir Road block only.</p>
+  <div class="tablewrap"><table id="ltable"><thead><tr><th>Layer</th><th>Publisher</th><th>Licence</th><th style="text-align:right">Features</th><th>Covers</th><th>What it tells you</th></tr></thead><tbody></tbody></table></div>
+</section>
+
+<section>
+  <h2>Open questions</h2>
+  <ul class="gaps">
+    <li><b>The real work area</b><span>The Kashmir Road block is a provisional box round the road end. Once the work area is drawn, the block (and the offline download) can be fitted to it.</span></li>
+    <li><b>Herenga ā Nuku licence</b><span>The <a href="https://www.herengaanuku.govt.nz" target="_blank" rel="noopener">Herenga ā Nuku</a> site states CC BY 4.0, but its track and access‑land services carry no licence text. Confirm before the map is made public.</span></li>
+    <li><b>Aerials cover the eastern side only</b><span>The aerial years are Hawke's Bay surveys, so the western (Manawatū) side of the park is blank on the aerial base. Use the topo map or satellite for the whole park.</span></li>
+    <li><b>LiDAR predates the harvest</b><span>Both Hawke's Bay LiDAR flights (2020–21 and 2023–24) were before DOC's 2024–25 harvest, so LiDAR can't show the clearance yet. The 2025–26 aerial does.</span></li>
+    <li><b>Plant list</b><span>The phone form's plant list is a starter list for the eastern Ruahine foothills. Replace it with the group's list and the names they use.</span></li>
+    <li><b>Offline in the field</b><span>Open the phone form with signal, tap “Save the map for offline use”, and let the photo helper download once. After that the form, map tiles for the block and species suggestions work without signal.</span></li>
+  </ul>
+</section>
+
+<footer id="attrib"></footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/4.7.1/maplibre-gl.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+const DATA = /*__DATA__*/{};
+const IMG = /*__IMG__*/{};
+const LIDAR = /*__LIDAR__*/{};
+const SITE_CFG = /*__CFG__*/{};
+const AREA=SITE_CFG.area, FB=AREA.focus.bounds, PB=AREA.bounds;
+const BOX=[[FB.west,FB.south],[FB.east,FB.north]];
+const CENTER=[(FB.west+FB.east)/2,(FB.south+FB.north)/2];
+const PARKBOX=[[176.0,-40.27],[176.36,-39.50]];
+const BOXPOLY={type:"Feature",properties:{},geometry:{type:"Polygon",coordinates:[[[BOX[0][0],BOX[0][1]],[BOX[1][0],BOX[0][1]],[BOX[1][0],BOX[1][1]],[BOX[0][0],BOX[1][1]],[BOX[0][0],BOX[0][1]]]]}};
+
+const PUB={
+  doc:['Department of Conservation','https://www.doc.govt.nz','CC BY 4.0'],
+  wa:['Herenga ā Nuku Aotearoa','https://www.herengaanuku.govt.nz','CC BY 4.0 on their site; not stated in the service'],
+  inat:['iNaturalist NZ','https://inaturalist.nz','Per record, mostly CC BY‑NC'],
+  linz:['Toitū Te Whenua LINZ','https://www.linz.govt.nz','CC BY 4.0'],
+};
+const INATC={Aves:'#28699a',Plantae:'#2c7a4b',Insecta:'#c47d14',Fungi:'#8a5a3c',Arachnida:'#6a4c9c',Reptilia:'#b8334a',Other:'#7d8883'};
+
+// One table drives the map, the layer list and the findings table.
+// One table drives the map, the layer list and the findings table. lazy: loaded from /data/ the first time it is switched on.
+const LAYERS=[
+ {g:'Walking access',id:'doc_park',label:'Ruahine Forest Park',kind:'outline',color:'#2c7a4b',width:2.5,on:true,pub:'doc',cov:'Park',why:'DOC’s outline of the forest park (Public Conservation Land), 95,266 ha.'},
+ {g:'Walking access',id:'wa_tracks',label:'Tracks (Herenga ā Nuku)',kind:'line',color:'#b8334a',width:2,on:true,pub:'wa',cov:'Park + 3 km',why:'National tracks dataset (pilot), with what each track is suitable for, dog rules and status. Mostly tramping tracks here.'},
+ {g:'Walking access',id:'doc_tracks',label:'DOC tracks',kind:'line',color:'#8a5a3c',width:1.5,dash:true,on:false,pub:'doc',cov:'Park + 3 km',why:'DOC’s own track lines, with track type. Overlaps the Herenga ā Nuku tracks; useful where they differ.'},
+ {g:'Walking access',id:'doc_huts',label:'Huts',kind:'circle',color:'#c47d14',r:5.5,on:true,pub:'doc',cov:'Park + 3 km',why:'DOC huts and bivvies, with hut type.'},
+ {g:'Walking access',id:'doc_campsites',label:'Campsites',kind:'circle',color:'#1f8a8a',r:5,on:false,pub:'doc',cov:'Park + 3 km',why:'DOC campsites.'},
+ {g:'Walking access',id:'doc_roads',label:'DOC roads',kind:'line',color:'#5f6b5a',width:2,on:false,pub:'doc',cov:'Park + 3 km',why:'Roads DOC manages, mostly road ends and car parks at the park edge.'},
+ {g:'Walking access',id:'wa_access_land',label:'Public access conservation land',kind:'fill',color:'#2c7a4b',opacity:.12,outline:true,on:false,pub:'wa',cov:'Park + 3 km',why:'Conservation land the public can walk on, including stewardship areas beside the park.'},
+ {g:'Walking access',id:'wa_reserves',label:'Reserves',kind:'fill',color:'#6a9c3a',opacity:.15,outline:true,on:false,pub:'wa',cov:'Park + 3 km',why:'Council and other reserves with public access.'},
+ {g:'Walking access',id:'wa_road_parcels',label:'Unformed legal roads',kind:'fill',color:'#6a4c9c',opacity:.25,on:false,pub:'wa',cov:'Park + 3 km',why:'Road parcels, many unformed (“paper roads”). The public can walk them, which can give legal access to the park across farmland.'},
+ {g:'Walking access',id:'wa_easements',label:'Walking access easements',kind:'line',color:'#6a4c9c',width:2.5,on:false,pub:'wa',cov:'Park + 3 km',why:'Legal walking easements across private land.'},
+ {g:'Wilding pines',id:'inat_conifers',label:'Conifer sightings (iNaturalist)',kind:'circle',color:'#b8334a',r:5,on:false,pub:'inat',cov:'Park + 3 km',why:'Pines, Douglas fir and larch recorded by iNaturalist observers across the park. Few records, but a start on where wildings turn up.'},
+ {g:'Kashmir Road block',id:'inat_obs',label:'Species sightings',kind:'circle',color:'#28699a',on:false,pub:'inat',cov:'Block',why:'All iNaturalist records in the block. Location is blurred for sensitive species.'},
+ {g:'Kashmir Road block',id:'lidar_canopy',label:'Tree canopy, 2023–24',kind:'canopy',lazy:true,on:false,color:'#3f8f56',pub:'linz',cov:'Block',countText:'on demand',why:'Derived here: LiDAR surface height minus ground height, over 3 m, smoothed to 6 m. Shows the pine block’s height before the 2024–25 harvest. CANOPY% of the block was over 3 m.'},
+ {g:'Kashmir Road block',id:'lidar_contours',label:'Contours, 20 m',kind:'contour',lazy:true,on:false,color:'#7a5a2c',pub:'linz',cov:'Block',countText:'on demand',why:'Generated here from the 2023–24 LiDAR ground model, 100 m contours bold.'},
+ {g:'Kashmir Road block',id:'lidar_elev',label:'Ground height shading',kind:'image',on:false,color:'#78aa96',countText:'1 image',pub:'linz',cov:'Block',why:'Bare‑earth height from the 2023–24 Hawke’s Bay LiDAR with hillshade, ELEV_RANGE.'},
+];
+LAYERS.forEach(L=>{L.count=L.lazy?0:((DATA[L.id]||{}).features||[]).length; if(L.why)L.why=L.why.replace('CANOPY%',LIDAR.cover_pct+'%').replace('ELEV_RANGE',`${Math.round(LIDAR.elev_min)}–${Math.round(LIDAR.elev_max)} m above sea level`)});
+
+// ---------- annotations store ----------
+const CATS=Object.fromEntries((SITE_CFG.categories||[]).map(c=>[c.id,c.colour])); CATS.Example='#7d8883';
+const CATLABEL=Object.fromEntries((SITE_CFG.categories||[]).map(c=>[c.id,c.label]));
+const SKEY='ruahine-map-annotations-v1';
+let ANN; let stored=true;
+try{const s=localStorage.getItem(SKEY); ANN=s?JSON.parse(s):null}catch(e){stored=false}
+if(!ANN||!Array.isArray(ANN.features)) ANN={type:'FeatureCollection',features:[]};
+function saveAnn(){try{localStorage.setItem(SKEY,JSON.stringify(ANN));stored=true}catch(e){stored=false} renderAnnList(); refreshAnnSource()}
+
+// ---------- map styles ----------
+// Aerial years come from LINZ through the site's tile function; the older surveys are single images of the block.
+const IMGBOX=[[BOX[0][0],BOX[1][1]],[BOX[1][0],BOX[1][1]],[BOX[1][0],BOX[0][1]],[BOX[0][0],BOX[0][1]]];
+const HISTS=AREA.historical_aerials||{};
+const HIST=Object.keys(HISTS).filter(k=>!k.startsWith('_')).map(Number).sort((a,b)=>a-b);
+const LINZY=Object.keys(AREA.linz_layers||{}).map(Number).sort((a,b)=>a-b);
+const YEARS=[...HIST,...LINZY];
+const YEARNOTE=Object.fromEntries([...HIST.map(y=>[y,HISTS[y].note]),...LINZY.map(y=>[y,(AREA.aerial_notes||{})[y]||String(y)])]);
+const TILE=q=>location.origin+'/linz/aerial/{z}/{x}/{y}.png?'+q;
+const BG=[{id:'bg',type:'background',paint:{'background-color':'#eef1ec'}}];
+function yearStyle(y,canvasId){
+  if(HIST.includes(y)) return {version:8,sources:{aer:{type:'canvas',canvas:canvasId,coordinates:IMGBOX,animate:false,attribution:'Aerial '+y+' © Toitū Te Whenua LINZ, CC BY 4.0'}},layers:[...BG,{id:'aer',type:'raster',source:'aer',paint:{'raster-fade-duration':0}}]};
+  return {version:8,sources:{aer:{type:'raster',tiles:[TILE('year='+y)],tileSize:256,minzoom:10,maxzoom:21,attribution:'Aerial '+y+' © Toitū Te Whenua LINZ, CC BY 4.0'}},layers:[...BG,{id:'aer',type:'raster',source:'aer'}]};
+}
+function rasterStyle(tiles,attr,max,min){return {version:8,sources:{r:{type:'raster',tiles:[tiles],tileSize:256,minzoom:min||0,maxzoom:max||19,attribution:attr}},layers:[...BG,{id:'r',type:'raster',source:'r'}]}}
+let baseMode='aerial';
+const imgReady={};
+function drawImg(key){return new Promise(res=>{const im=new Image();im.onload=()=>{const c=document.getElementById('cv-'+key);c.width=im.naturalWidth;c.height=im.naturalHeight;c.getContext('2d').drawImage(im,0,0);imgReady[key]=true;res(true)};im.onerror=()=>res(false);im.src=IMG[key]})}
+let yearA=LINZY[LINZY.length-1], yearB=HIST[0]||LINZY[0], comparing=false;
+const map=new maplibregl.Map({container:'map',style:yearStyle(yearA,'cv-aerial'),bounds:BOX,fitBoundsOptions:{padding:12},maxBounds:[[PB.west-.05,PB.south-.05],[PB.east+.05,PB.north+.05]],minZoom:8,attributionControl:{compact:false},canvasContextAttributes:{preserveDrawingBuffer:true},preserveDrawingBuffer:true});
+map.addControl(new maplibregl.NavigationControl({showCompass:false}),'top-right');
+map.addControl(new maplibregl.ScaleControl({maxWidth:120,unit:'metric'}),'bottom-left');
+const lazyLoaded={};
+function vis(L){const c=document.getElementById('chk-'+L.id); return (c?c.checked:L.on)?'visible':'none'}
+function addLayerFor(L){
+  const v=vis(L);
+  if(L.kind==='image'){ if(!imgReady.elev) return; map.addSource(L.id,{type:'canvas',canvas:'cv-elev',coordinates:IMGBOX,animate:false});
+    map.addLayer({id:L.id,type:'raster',source:L.id,layout:{visibility:v},paint:{'raster-opacity':.85,'raster-fade-duration':0}},'box-line'); return }
+  if(L.lazy&&v==='none'&&!lazyLoaded[L.id]) return;
+  map.addSource(L.id,{type:'geojson',data:L.lazy?('/data/'+L.id+'.geojson'):(DATA[L.id]||{type:'FeatureCollection',features:[]}),attribution:PUB[L.pub][0]});
+  if(L.lazy) lazyLoaded[L.id]=true;
+  const before='box-line';
+  if(L.kind==='contour') map.addLayer({id:L.id,type:'line',source:L.id,layout:{visibility:v,'line-join':'round'},paint:{'line-color':L.color,'line-width':['case',['get','major'],1.6,.7],'line-opacity':['case',['get','major'],.95,.6]}},before);
+  else if(L.kind==='canopy') map.addLayer({id:L.id,type:'fill',source:L.id,layout:{visibility:v},paint:{'fill-color':['match',['get','band'],1,'#a6d78f',2,'#4fa15e','#1d5e31'],'fill-opacity':.55}},before);
+  else if(L.kind==='fill'){ map.addLayer({id:L.id,type:'fill',source:L.id,layout:{visibility:v},paint:{'fill-color':L.color,'fill-opacity':L.opacity??.6}},before);
+    if(L.outline) map.addLayer({id:L.id+'__o',type:'line',source:L.id,layout:{visibility:v},paint:{'line-color':L.color,'line-width':1}},before); }
+  else if(L.kind==='outline'){ map.addLayer({id:L.id,type:'fill',source:L.id,layout:{visibility:v},paint:{'fill-color':L.color,'fill-opacity':0.01}},before);
+    map.addLayer({id:L.id+'__o',type:'line',source:L.id,layout:{visibility:v},paint:{'line-color':L.color,'line-width':L.width||1.6}},before); }
+  else if(L.kind==='line') map.addLayer({id:L.id,type:'line',source:L.id,layout:{visibility:v,'line-cap':'round','line-join':'round'},paint:{'line-color':L.color,'line-width':['interpolate',['linear'],['zoom'],9,(L.width||2)*.6,14,(L.width||2)*1.4],...(L.dash?{'line-dasharray':[2,2]}:{})}},before);
+  else if(L.kind==='circle'){ const col = L.id==='inat_obs' ? ['match',['get','group'],...Object.entries(INATC).flat(),'#7d8883'] : L.color;
+    map.addLayer({id:L.id,type:'circle',source:L.id,layout:{visibility:v},paint:{'circle-color':col,'circle-radius':L.r||4.5,'circle-stroke-color':'#ffffff','circle-stroke-width':1.2,'circle-opacity':.92}},before); }
+}
+function addOverlays(){
+  map.addSource('box',{type:'geojson',data:BOXPOLY});
+  map.addLayer({id:'box-line',type:'line',source:'box',paint:{'line-color':'#ffffff','line-width':2,'line-dasharray':[4,2]}});
+  LAYERS.forEach(L=>{ if(!L.empty&&L.panel!==false) addLayerFor(L) });
+  // records
+  map.addSource('ann',{type:'geojson',data:annData()});
+  const ccol=['match',['get','cat'],...Object.entries(CATS).flat(),'#b8334a'];
+  map.addLayer({id:'ann-fill',type:'fill',source:'ann',filter:['==',['geometry-type'],'Polygon'],paint:{'fill-color':ccol,'fill-opacity':['match',['get','cat'],'Work area',.04,.28]}});
+  map.addLayer({id:'ann-line',type:'line',source:'ann',filter:['!=',['geometry-type'],'Point'],paint:{'line-color':ccol,'line-width':['match',['get','cat'],'Work area',3.5,2.5],'line-dasharray':['match',['get','cat'],'Work area',['literal',[3,1.5]],['literal',[1,0]]]}});
+  map.addLayer({id:'ann-pt',type:'circle',source:'ann',filter:['==',['geometry-type'],'Point'],paint:{'circle-radius':7,'circle-color':['case',['get','_needs'],'#ffffff',ccol],'circle-stroke-color':['case',['get','_needs'],ccol,'#ffffff'],'circle-stroke-width':['case',['get','_needs'],3,2]}});
+  map.addSource('draft',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+  map.addLayer({id:'draft-fill',type:'fill',source:'draft',filter:['==',['geometry-type'],'Polygon'],paint:{'fill-color':'#b8334a','fill-opacity':.12}});
+  map.addLayer({id:'draft-line',type:'line',source:'draft',filter:['!=',['geometry-type'],'Point'],paint:{'line-color':'#b8334a','line-width':2,'line-dasharray':[2,1]}});
+  map.addLayer({id:'draft-pt',type:'circle',source:'draft',filter:['==',['geometry-type'],'Point'],paint:{'circle-radius':4,'circle-color':'#b8334a'}});
+}
+map.on('style.load',()=>{addOverlays();applyTime()});
+let userMoved=false;
+map.on('movestart',e=>{ if(e.originalEvent) userMoved=true });
+new ResizeObserver(()=>{ map.resize(); if(!userMoved) map.fitBounds(BOX,{padding:12,animate:false}) }).observe(document.getElementById('map'));
+drawImg('elev').then(ok=>{ if(ok&&map.isStyleLoaded()&&!map.getSource('lidar_elev')) addLayerFor(LAYERS.find(l=>l.id==='lidar_elev')) });
+document.getElementById('go-focus').addEventListener('click',()=>{userMoved=true;map.fitBounds(BOX,{padding:12})});
+document.getElementById('go-park').addEventListener('click',()=>{userMoved=true;map.fitBounds(PARKBOX,{padding:12})});
+
+// ---------- base switching ----------
+const tilenote=document.getElementById('tilenote');
+function setBase(mode){
+  baseMode=mode; tilenote.hidden=true; map.setMaxZoom(22);
+  if(mode==='aerial'){ setYearA(yearA); return }
+  if(mode==='topo') map.setStyle(rasterStyle(TILE('src=topo'),'Topo50 © Toitū Te Whenua LINZ, CC BY 4.0',18,8),{diff:false});
+  if(mode==='sat') map.setStyle(rasterStyle(TILE('src=sat'),'Satellite 2025–26 © Toitū Te Whenua LINZ, CC BY 4.0',15,8),{diff:false});
+  if(mode==='ofm') tryVector();
+}
+function tryVector(){
+  fetch('https://tiles.openfreemap.org/styles/positron').then(r=>r.json()).then(st=>{if(baseMode==='ofm'){map.setStyle(st,{diff:false})}}).catch(()=>showBlocked());
+}
+let blockedTimer;
+function showBlocked(){clearTimeout(blockedTimer);blockedTimer=setTimeout(()=>{tilenote.textContent='Map tiles could not load here. They need the hosted site (the tile function adds the LINZ key).';tilenote.hidden=false},600)}
+map.on('error',e=>{ const st=e&&e.error&&e.error.status; if(st===502||st===503) showBlocked() });   // missing key or LINZ down; 403/404 at the edges are normal
+document.querySelectorAll('input[name=base]').forEach(r=>r.addEventListener('change',()=>setBase(r.value)));
+
+// ---------- layer panel ----------
+const groups=[...new Set(LAYERS.map(l=>l.g))];
+const lc=document.getElementById('layers');
+groups.forEach(g=>{
+  const box=document.createElement('div');box.className='group';
+  box.innerHTML='<h3>'+g+'</h3>';
+  LAYERS.filter(l=>l.g===g&&l.panel!==false).forEach(L=>{
+    const row=document.createElement('label');row.className='lyr'+(L.empty?' empty':'');
+    const sw=L.kind==='circle'?'pt':(L.kind==='line'||L.kind==='contour'?'ln':'');
+    row.innerHTML=`<input type="checkbox" id="chk-${L.id}" ${L.on?'checked':''} ${L.empty?'disabled':''}><span class="sw ${sw}" style="--sw:${L.color}"></span><span>${L.label}</span><span class="n">${L.empty?'none here':(L.countText||L.count.toLocaleString('en-NZ'))}</span>`;
+    box.appendChild(row);
+    if(L.kind==='canopy'){const lg=document.createElement('div');lg.className='legend-inat';lg.innerHTML=[['3–8 m','#a6d78f'],['8–15 m','#4fa15e'],['over 15 m','#1d5e31']].map(([n,c])=>`<span style="--c:${c}">${n}</span>`).join('');box.appendChild(lg)}
+    if(L.id==='inat_obs'){const lg=document.createElement('div');lg.className='legend-inat';lg.innerHTML=Object.entries({Birds:'Aves',Plants:'Plantae',Insects:'Insecta',Fungi:'Fungi',Spiders:'Arachnida',Reptiles:'Reptilia'}).map(([n,k])=>`<span style="--c:${INATC[k]}">${n}</span>`).join('');box.appendChild(lg)}
+    row.querySelector('input').addEventListener('change',e=>{
+      const v=e.target.checked?'visible':'none';
+      if(L.lazy&&!lazyLoaded[L.id]&&e.target.checked){ addLayerFor(L); return }
+      [L.id,L.id+'__o'].forEach(id=>{if(map.getLayer(id))map.setLayoutProperty(id,'visibility',v)});
+    });
+  });
+  lc.appendChild(box);
+});
+
+// ---------- popups ----------
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const titleCase=s=>String(s||'').toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());
+function popupHTML(id,p){
+  const L=LAYERS.find(l=>l.id===id); const src=L?esc(L.label)+' · '+esc(PUB[L.pub][0]):'';
+  let b='',x='';
+  const yn=(k,v)=>v&&v!=='Unknown'?`${k}: ${esc(v)}<br>`:'';
+  switch(id){
+    case 'inat_obs': case 'inat_conifers': b=p.name; x=`<i>${esc(p.sci)}</i><br>${esc(p.date)} · ${esc(p.grade==='research'?'Research grade':p.grade==='needs_id'?'Needs ID':'Casual')}${p.obscured?'<br>Location blurred':''}<br>Licence: ${esc((p.lic||'none').toUpperCase())}<br><a href="${esc(p.url)}" target="_blank" rel="noopener">Open on iNaturalist</a>`;break;
+    case 'wa_tracks': b=p.name||'Track'; x=yn('Walking',p.walk)+yn('Biking',p.bike)+yn('Horses',p.horse)+yn('Vehicles',p.vehicle)+yn('Dogs',p.dogs)+yn('Status',p.status)+(p.conditions?esc(p.conditions):'');break;
+    case 'doc_tracks': b=p.name||'DOC track'; x=esc(p.kind||p.type||'');break;
+    case 'doc_huts': b=String(p.name||'Hut').replace(/\s*\(H\)\s*$/,''); x=esc(p.kind||'');break;
+    case 'doc_campsites': case 'doc_roads': b=p.name||L.label; x=esc(p.kind||'');break;
+    case 'doc_park': b='Ruahine Forest Park'; x='Conservation park, '+Number(p.ha||95266).toLocaleString('en-NZ')+' ha';break;
+    case 'wa_access_land': case 'wa_reserves': b=p.common_name||p.paa_type||'Public access land'; x=[p.paa_type,p.managed_by?'Managed by '+p.managed_by:'',p.public_access==='yes'?'Public access':''].filter(Boolean).map(esc).join('<br>');break;
+    case 'wa_road_parcels': b='Legal road'; x=(p.managed_by?'Managed by '+esc(p.managed_by)+'<br>':'')+'Open to walk even where it isn’t formed. Check the line on the ground before crossing farmland.';break;
+    case 'wa_easements': b=p.common_name||'Walking access easement'; x=esc(p.managed_by||'');break;
+    case 'lidar_contours': b='Ground height '+p.elev+' m'; x='Above sea level, from 2023–24 LiDAR';break;
+    case 'lidar_canopy': b='Canopy '+p.label+' tall'; x='From 2023–24 LiDAR, before the 2024–25 harvest';break;
+    default: b=id;
+  }
+  return `<span class="src">${src}</span><b>${esc(b)}</b>${x}`;
+}
+// Free Google Maps links (Maps URLs: no key, no cost). Opens Google Maps in a new tab or the Google Maps app.
+function gLinks(ll){
+  const q=(+ll[1]).toFixed(6)+','+(+ll[0]).toFixed(6);
+  return `<span class="glinks"><a href="https://www.google.com/maps/search/?api=1&query=${q}" target="_blank" rel="noopener">Google Maps</a><a href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${q}" target="_blank" rel="noopener">Street View</a><a href="https://www.google.com/maps/dir/?api=1&destination=${q}&travelmode=walking" target="_blank" rel="noopener">Directions</a></span>`;
+}
+function annPopup(p){
+  const photos=Array.isArray(p.photos)?p.photos:[]; const m=(p.meta&&typeof p.meta==='object')?p.meta:{};
+  const when=p.added?new Date(p.added).toLocaleString('en-NZ',{day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'}):'';
+  const posTxt={gps:`GPS ±${m.accuracy_m} m`,moved:'pin moved by hand',map:'placed on the map',photo:'from photo location'}[m.position]||'';
+  const task=DSET&&m.task?(DSET.tasks||[]).find(t=>t.id===m.task):null;
+  let h=`<span class="src">${esc(task?task.label:'Annotation')} · ${esc(p.cat)}</span><b>${esc(p.title)}${m.review&&m.review.status==='needs-id'?' <span style="color:#a8661a;font-size:.7rem;border:1.5px solid currentColor;border-radius:3px;padding:0 3px">Needs ID</span>':''}</b>`;
+  if(m.fields&&typeof m.fields==='object'){ const defs=task?task.fields:Object.keys(m.fields).map(k=>({id:k,label:k}));
+    const rows=defs.filter(fd=>m.fields[fd.id]!==undefined&&fd.id!=='title').map(fd=>{let v=m.fields[fd.id]; if(v&&typeof v==='object') v=v.label+(v.sci?` (${v.sci})`:'')+(v.confidence==='think'?', probably':v.confidence==='unsure'&&v.label!=='Not sure'?', not sure':'')+(v.not_on_list?', from the photo helper, not on our list':''); if(v===true)v='Yes'; if(v===false)v='No'; return `<span class="mm" style="margin:0;color:#1b2722">${esc(fd.label)}: ${esc(v)}</span>`}).join('');
+    h+=rows; }
+  if(m.ai&&Array.isArray(m.ai.top)&&m.ai.top.length){ const t=m.ai.top[0]; h+=`<span class="mm" style="margin:0">Photo helper (Aotearoa Species Classifier, TAIAO) top guess: ${esc(t.common||t.sci)} (${Math.round((t.p||0)*100)}%)${m.ai.chosen==='none'?', rejected by the recorder':m.ai.chosen&&m.ai.chosen!==t.sci?', recorder chose '+esc(m.ai.chosen):''}</span>` }
+  if(p.note) h+=esc(p.note)+'<br>';
+  if(photos.length) h+=`<span class="pp">${photos.map(ph=>`<a href="${esc(ph.url)}" target="_blank" rel="noopener"><img src="${esc(ph.url)}" alt="${esc(ph.caption||p.title)}" loading="lazy"></a>`).join('')}</span>`;
+  const bits=[p.by?'By '+esc(p.by):'', when, posTxt, m.via==='phone'?'from a phone':''].filter(Boolean);
+  if(bits.length) h+=`<span class="mm">${bits.join(' · ')}</span>`;
+  return h;
+}
+const CLICK_ORDER=['ann-pt','ann-line','ann-fill','doc_huts','doc_campsites','inat_conifers','inat_obs','wa_easements','wa_tracks','doc_tracks','doc_roads','lidar_contours','lidar_canopy','wa_road_parcels','wa_reserves','wa_access_land','doc_park'];
+map.on('click',e=>{
+  if(drawMode) return;
+  const ids=CLICK_ORDER.filter(id=>map.getLayer(id)&&map.getLayoutProperty(id,'visibility')!=='none');
+  const fs=map.queryRenderedFeatures([[e.point.x-4,e.point.y-4],[e.point.x+4,e.point.y+4]],{layers:ids});
+  if(!fs.length) return;
+  fs.sort((a,b)=>ids.indexOf(a.layer.id)-ids.indexOf(b.layer.id));
+  const f=fs[0]; let html;
+  if(f.layer.id.startsWith('ann-')){const full=(ANN.features.find(a=>a.properties.id===f.properties.id)||{properties:f.properties}).properties; html=annPopup(full); lastOpen={id:full.id,title:full.title}; updateEmbed()}
+  else html=popupHTML(f.layer.id,f.properties);
+  html+=gLinks(f.geometry&&f.geometry.type==='Point'?f.geometry.coordinates:[e.lngLat.lng,e.lngLat.lat]);
+  new maplibregl.Popup({maxWidth:'280px'}).setLngLat(e.lngLat).setHTML(html).addTo(map);
+});
+map.on('mousemove',e=>{ if(drawMode){map.getCanvas().style.cursor='crosshair';return}
+  const ids=CLICK_ORDER.filter(id=>map.getLayer(id)&&map.getLayoutProperty(id,'visibility')!=='none'&&!['doc_park','wa_access_land','wa_reserves','lidar_canopy'].includes(id));
+  map.getCanvas().style.cursor=map.queryRenderedFeatures(e.point,{layers:ids}).length?'pointer':'';
+});
+
+// ---------- drawing ----------
+let drawMode=null, verts=[], pending=null;
+const btn={point:document.getElementById('d-point'),line:document.getElementById('d-line'),area:document.getElementById('d-area')};
+const fin=document.getElementById('d-finish'), can=document.getElementById('d-cancel'), hint=document.getElementById('d-hint');
+const form=document.getElementById('annform'), cat=document.getElementById('a-cat'), taskSel=document.getElementById('a-task');
+cat.innerHTML=Object.keys(CATS).filter(c=>c!=='Example').map(c=>`<option value="${esc(c)}">${esc(CATLABEL[c]||c)}</option>`).join('');
+// Desktop tasks: those marked desktop_only (drawn areas). Their fields are checked by the server like phone records.
+const DTASKS=(SITE_CFG.tasks||[]).filter(t=>t.desktop_only);
+taskSel.innerHTML=DTASKS.map(t=>`<option value="${esc(t.id)}">${esc(t.label)}</option>`).join('')+'<option value="">Note (title and category only)</option>';
+function renderTaskFields(){
+  const t=DTASKS.find(x=>x.id===taskSel.value), box=document.getElementById('a-fields');
+  document.getElementById('a-cat-wrap').hidden=!!t;
+  box.innerHTML=!t?'':t.fields.map(fd=>{
+    const id='tf-'+fd.id, lab=esc(fd.label)+(fd.required?'':' <span class="hint">(optional)</span>');
+    if(fd.type==='choice') return `<label>${lab}<select id="${id}">${fd.required?'':'<option value=""></option>'}${fd.options.map(o=>`<option>${esc(o)}</option>`).join('')}</select></label>`;
+    if(fd.type==='date') return `<label>${lab}<input type="date" id="${id}"></label>`;
+    if(fd.type==='number') return `<label>${lab}<input type="number" id="${id}" min="${fd.min??''}" max="${fd.max??''}"></label>`;
+    return `<label>${lab}<input id="${id}" maxlength="${fd.max||80}"></label>`;
+  }).join('');
+}
+taskSel.addEventListener('change',renderTaskFields);
+function taskTitle(t,fields,fallback){
+  return (t.title||'{title}').replace(/\{(\w+)\}/g,(m,k)=>k==='title'?fallback:(fields[k]??'')).replace(/[:×(]\s*\)?\s*$/,'').replace(/:\s*$/,'').trim()||fallback||t.label;
+}
+function draftGeom(){
+  if(!verts.length) return {type:'FeatureCollection',features:[]};
+  const fs=verts.map(v=>({type:'Feature',properties:{},geometry:{type:'Point',coordinates:v}}));
+  if(drawMode==='line'&&verts.length>1) fs.push({type:'Feature',properties:{},geometry:{type:'LineString',coordinates:verts}});
+  if(drawMode==='area'&&verts.length>2) fs.push({type:'Feature',properties:{},geometry:{type:'Polygon',coordinates:[[...verts,verts[0]]]}});
+  else if(drawMode==='area'&&verts.length===2) fs.push({type:'Feature',properties:{},geometry:{type:'LineString',coordinates:verts}});
+  return {type:'FeatureCollection',features:fs};
+}
+function setDraft(){map.getSource('draft')?.setData(draftGeom())}
+function startDraw(m){
+  cancelDraw(); drawMode=m; btn[m].classList.add('on'); can.hidden=false;
+  map.doubleClickZoom.disable();
+  hint.textContent = m==='point'?'Click the map to place the point.':(m==='line'?'Click to add points along the line, then Finish shape.':'Click the corners of the area, then Finish shape.');
+}
+function cancelDraw(){drawMode=null;verts=[];setDraft();Object.values(btn).forEach(b=>b.classList.remove('on'));fin.hidden=true;can.hidden=true;hint.textContent='Pick a tool, then click the map.';map.doubleClickZoom.enable();map.getCanvas().style.cursor=''}
+Object.entries(btn).forEach(([m,b])=>b.addEventListener('click',()=>drawMode===m?cancelDraw():startDraw(m)));
+can.addEventListener('click',()=>{cancelDraw();form.hidden=true;pending=null});
+fin.addEventListener('click',finishShape);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&drawMode){cancelDraw()}});
+map.on('click',e=>{
+  if(!drawMode) return;
+  verts.push([+e.lngLat.lng.toFixed(6),+e.lngLat.lat.toFixed(6)]); setDraft();
+  if(drawMode==='point') return finishShape();
+  fin.hidden = !((drawMode==='line'&&verts.length>1)||(drawMode==='area'&&verts.length>2));
+});
+map.on('dblclick',e=>{ if(drawMode&&drawMode!=='point'){e.preventDefault(); verts.pop(); finishShape()} });
+function finishShape(){
+  let g;
+  if(drawMode==='point') g={type:'Point',coordinates:verts[0]};
+  else if(drawMode==='line'&&verts.length>1) g={type:'LineString',coordinates:verts};
+  else if(drawMode==='area'&&verts.length>2) g={type:'Polygon',coordinates:[[...verts,verts[0]]]};
+  else return;
+  pending=g; const keep=drawMode; drawMode=null; Object.values(btn).forEach(b=>b.classList.remove('on')); fin.hidden=true;
+  hint.textContent='Name it and save it in the panel.';
+  form.hidden=false; taskSel.value=(keep==='area'&&DTASKS.length)?DTASKS[0].id:''; renderTaskFields(); document.getElementById('a-title').value=''; document.getElementById('a-note').value=''; document.getElementById('a-title').focus();
+  form.scrollIntoView({block:'nearest',behavior:'smooth'});
+}
+form.addEventListener('submit',e=>{
+  e.preventDefault(); if(!pending) return;
+  const byv=document.getElementById('a-by').value.trim(); try{localStorage.setItem('map-by',byv)}catch(e){}
+  const t=DTASKS.find(x=>x.id===taskSel.value), titleIn=document.getElementById('a-title').value.trim();
+  const props={id:'a'+Date.now().toString(36),cat:cat.value,note:document.getElementById('a-note').value.trim(),by:byv,added:new Date().toISOString().slice(0,10)};
+  if(t){
+    const fields={};
+    for(const fd of t.fields){ const el=document.getElementById('tf-'+fd.id); const v=el?el.value.trim():'';
+      if(!v){ if(fd.required){amsg.textContent=`“${fd.label}” is needed.`;el&&el.focus();return} continue }
+      fields[fd.id]=fd.type==='number'?Number(v):v; }
+    props.task=t.id; props.fields=fields; props.meta={via:'desktop'};
+    const sc=(t.fields.find(fd=>fd.sets_category)||{}).sets_category; props.cat=(sc&&sc[fields.status])||t.category||props.cat;
+    props.title=taskTitle(t,{...fields,name:fields.name||titleIn},titleIn)||'Untitled';
+    props.meta.task=t.id; props.meta.fields=fields;
+  } else props.title=titleIn||'Untitled';
+  if(!props.title) props.title='Untitled';
+  const f={type:'Feature',properties:props,geometry:pending};
+  const btn=form.querySelector('button[type=submit]'); btn.disabled=true;
+  addFeatures([f]).then(ok=>{ btn.disabled=false; if(!ok) return; pending=null; form.hidden=true; verts=[]; setDraft(); cancelDraw(); });
+});
+document.getElementById('a-discard').addEventListener('click',()=>{pending=null;form.hidden=true;cancelDraw()});
+
+function annData(){return {type:'FeatureCollection',features:ANN.features.map(f=>({...f,properties:{...f.properties,_needs:!!(f.properties.meta&&f.properties.meta.review&&f.properties.meta.review.status==='needs-id')}}))}}
+function refreshAnnSource(){map.getSource('ann')?.setData(annData());
+  if(typeof updateAdminCount==='function') updateAdminCount();
+  const rl=document.getElementById('reviewlink'); if(rl&&!document.getElementById('sharedbar').hidden){ rl.hidden=false; const n=ANN.features.filter(f=>f.properties.meta&&f.properties.meta.review&&f.properties.meta.review.status==='needs-id').length; document.getElementById('reviewn').textContent=n?` · ${n} need${n===1?'s':''} an ID check`:' · nothing needs an ID check' } }
+function centroid(g){const c=g.type==='Point'?[g.coordinates]:(g.type==='LineString'?g.coordinates:g.coordinates[0]);return [c.reduce((a,b)=>a+b[0],0)/c.length,c.reduce((a,b)=>a+b[1],0)/c.length]}
+function renderAnnList(){
+  const ul=document.getElementById('annlist'); ul.innerHTML='';
+  ANN.features.forEach((f,i)=>{
+    const p=f.properties, kind={Point:'Point',LineString:'Line',Polygon:'Area'}[f.geometry.type];
+    const li=document.createElement('li');
+    li.innerHTML=`<span class="dot" style="--c:${CATS[p.cat]||'#b8334a'}"></span><span><span class="t">${esc(p.title)}</span><br><span class="m">${esc(kind)} · ${esc(p.cat)}${p.by?' · '+esc(p.by):''}${Array.isArray(p.photos)&&p.photos.length?` · ${p.photos.length} photo${p.photos.length>1?'s':''}`:''}${p.note?' · '+esc(p.note):''}</span></span><span class="acts no-print"><button type="button" data-z="${i}">Show</button><button type="button" data-d="${i}" aria-label="Delete ${esc(p.title)}">Delete</button></span>`;
+    ul.appendChild(li);
+  });
+  if(!ANN.features.length) ul.innerHTML='<li><span></span><span class="m">No annotations yet. Use the Point, Line or Area tools under the map.</span><span></span></li>';
+  document.getElementById('annstore').textContent = SHARED ? `Shared: everyone who opens this map sees these annotations. Loaded at ${lastLoad.toLocaleTimeString('en-NZ',{hour:'numeric',minute:'2-digit'})}.` : (stored ? 'Saved in this browser only. Use Show as GeoJSON to take a copy.' : 'This browser is not saving annotations. Copy them out as GeoJSON before you leave.');
+}
+document.getElementById('annlist').addEventListener('click',e=>{
+  const z=e.target.dataset.z, d=e.target.dataset.d;
+  if(z!==undefined){map.flyTo({center:centroid(ANN.features[+z].geometry),zoom:Math.max(map.getZoom(),16.5)})}
+  if(d!==undefined){
+    if(e.target.dataset.confirm){e.target.disabled=true;deleteFeature(+d)}
+    else{e.target.dataset.confirm='1';e.target.textContent='Confirm';setTimeout(()=>{if(e.target.isConnected){delete e.target.dataset.confirm;e.target.textContent='Delete'}},3000)}
+  }
+});
+// import / export
+const io=document.getElementById('io-text'), iomsg=document.getElementById('io-msg'), copyBtn=document.getElementById('io-copy');
+document.getElementById('io-export').addEventListener('click',()=>{io.value=JSON.stringify(ANN,null,1);copyBtn.hidden=false;iomsg.textContent=ANN.features.length+' annotations as GeoJSON. Copy and save it as a .geojson file, or open it in QGIS.'});
+copyBtn.addEventListener('click',()=>{navigator.clipboard.writeText(io.value).then(()=>{iomsg.textContent='Copied.'}).catch(()=>{io.select();iomsg.textContent='Copy was refused here. The text is selected, so press Ctrl+C or ⌘C.'})});
+function loadGeo(txt){
+  try{
+    const g=JSON.parse(txt); const fs=g.type==='FeatureCollection'?g.features:(g.type==='Feature'?[g]:null);
+    if(!fs) throw new Error('not a Feature or FeatureCollection');
+    const add=[]; fs.forEach(f=>{ if(!f.geometry||!['Point','LineString','Polygon'].includes(f.geometry.type)) return; const p=f.properties||{};
+      add.push({type:'Feature',properties:{id:p.id||('i'+Math.random().toString(36).slice(2,8)),title:p.title||p.name||'Imported',cat:CATS[p.cat]&&p.cat!=='Example'?p.cat:'Observation',note:p.note||p.description||'',by:p.by||''},geometry:f.geometry})});
+    if(!add.length){iomsg.textContent='No points, lines or areas found in that GeoJSON.';return}
+    addFeatures(add).then(ok=>{ if(ok) iomsg.textContent=`Loaded ${add.length} feature${add.length===1?'':'s'}${SHARED?' into the shared map':''}.`; else iomsg.textContent='Nothing was loaded. See the message above.'; });
+  }catch(err){iomsg.textContent='That is not valid GeoJSON ('+err.message+'). Check it starts with { "type": "FeatureCollection".'}
+}
+document.getElementById('io-import').addEventListener('click',()=>{if(io.value.trim())loadGeo(io.value);else iomsg.textContent='Paste GeoJSON into the box first.'});
+document.getElementById('io-file').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>loadGeo(r.result);r.readAsText(f)});
+// ---------- timeline ----------
+const LOCAL_YEARS={};
+function loadYearImg(y){
+  if(LOCAL_YEARS[y]) return Promise.resolve(LOCAL_YEARS[y]);
+  return new Promise((res,rej)=>{const im=new Image();im.onload=()=>{LOCAL_YEARS[y]=im;res(im)};im.onerror=()=>rej(new Error('Could not load the '+y+' photo'));im.src=HISTS[y].image});
+}
+function paint(canvasId,im){const c=document.getElementById(canvasId);c.width=im.naturalWidth;c.height=im.naturalHeight;c.getContext('2d').drawImage(im,0,0)}
+async function setYearA(y){
+  yearA=y; renderYears();
+  if(baseMode!=='aerial'){ baseMode='aerial'; document.getElementById('base-aerial').checked=true }
+  const old=HIST.includes(y);
+  try{ if(old) paint('cv-aerial',await loadYearImg(y)); }catch(e){tilenote.textContent=e.message;tilenote.hidden=false;return}
+  map.setMaxZoom(old?17.5:22);
+  if(old&&!userMoved) map.fitBounds(BOX,{padding:12,animate:false});
+  map.setStyle(yearStyle(y,'cv-aerial'),{diff:false});
+  if(old) tilenote.textContent='The '+y+' photo covers the Kashmir Road block only.', tilenote.hidden=false; else tilenote.hidden=true;
+  updateTags();
+}
+// --- compare (swipe) map
+let map2=null, swipeX=.5;
+function map2Style(){return yearStyle(yearB,'cv-b')}
+async function setYearB(y){
+  yearB=y; renderYears();
+  try{ if(HIST.includes(y)) paint('cv-b',await loadYearImg(y));
+    if(map2) map2.setStyle(map2Style(),{diff:false});
+  }catch(e){tilenote.textContent=e.message;tilenote.hidden=false}
+  updateTags();
+}
+function syncMap2(){ if(map2) map2.jumpTo({center:map.getCenter(),zoom:map.getZoom(),bearing:map.getBearing(),pitch:map.getPitch()}) }
+function placeSwipe(){
+  const w=document.getElementById('mapwrap').clientWidth, x=Math.round(swipeX*w);
+  document.getElementById('swipe').style.left=x+'px';
+  document.getElementById('map2').style.clipPath=`inset(0 0 0 ${x}px)`;
+  const tA=document.getElementById('tagA'), tB=document.getElementById('tagB');
+  tA.style.left='8px'; tB.style.left=(x+8)+'px';
+}
+function updateTags(){
+  const tA=document.getElementById('tagA'), tB=document.getElementById('tagB');
+  tA.hidden=!comparing; tB.hidden=!comparing;
+  tA.textContent=yearA; tB.textContent=yearB;
+}
+async function toggleCompare(){
+  comparing=!comparing;
+  document.getElementById('map2').hidden=!comparing; document.getElementById('swipe').hidden=!comparing;
+  if(comparing){
+    if(baseMode!=='aerial'){document.getElementById('base-aerial').checked=true; await setYearA(yearA)}
+    try{ if(HIST.includes(yearB)) paint('cv-b',await loadYearImg(yearB)) }catch(e){}
+    if(!map2){
+      map2=new maplibregl.Map({container:'map2',style:map2Style(),interactive:false,attributionControl:false,center:map.getCenter(),zoom:map.getZoom()});
+      map.on('move',syncMap2);
+    } else { map2.resize(); map2.setStyle(map2Style(),{diff:false}) }
+    syncMap2(); placeSwipe();
+  }
+  renderYears(); updateTags();
+}
+// drag the divider
+(function(){
+  const sw=document.getElementById('swipe'), wrap=document.getElementById('mapwrap'); let drag=false;
+  const move=e=>{ if(!drag) return; const r=wrap.getBoundingClientRect(); const cx=(e.touches?e.touches[0].clientX:e.clientX); swipeX=Math.min(.98,Math.max(.02,(cx-r.left)/r.width)); placeSwipe(); e.preventDefault(); };
+  sw.addEventListener('pointerdown',e=>{drag=true;sw.setPointerCapture(e.pointerId)});
+  sw.addEventListener('pointermove',move); sw.addEventListener('pointerup',()=>drag=false);
+  document.getElementById('swipe-btn').addEventListener('keydown',e=>{ if(e.key==='ArrowLeft'||e.key==='ArrowRight'){swipeX=Math.min(.98,Math.max(.02,swipeX+(e.key==='ArrowLeft'?-.05:.05)));placeSwipe();e.preventDefault()} });
+  new ResizeObserver(()=>{ if(comparing){map2&&map2.resize();placeSwipe()} }).observe(wrap);
+})();
+function renderYears(){
+  const box=document.getElementById('years');
+  let h=YEARS.map(y=>`${y===HIST[0]?'<span class="histlab">Historical</span>':''}${y===LINZY[0]&&HIST.length?'<span class="sep"></span>':''}<button type="button" data-y="${y}" class="${HIST.includes(y)?'old':''}" aria-pressed="${y===yearA&&baseMode==='aerial'}" title="${YEARNOTE[y]}">${y}</button>`).join('');
+  h+=`<span class="sep"></span><button type="button" id="cmp" class="${comparing?'cmp-on':''}" aria-pressed="${comparing}">${comparing?'Stop comparing':'Compare two years'}</button>`;
+  if(comparing) h+=` <label class="hint" style="display:flex;gap:4px;align-items:center">right side <select id="yB">${YEARS.map(y=>`<option${y===yearB?' selected':''}>${y}</option>`).join('')}</select></label>`;
+  box.innerHTML=h;
+}
+document.getElementById('years').addEventListener('click',e=>{const y=e.target.dataset&&e.target.dataset.y; if(y) setYearA(+y); if(e.target.id==='cmp') toggleCompare()});
+document.getElementById('years').addEventListener('change',e=>{ if(e.target.id==='yB') setYearB(+e.target.value) });
+document.querySelectorAll('input[name=base]').forEach(r=>r.addEventListener('change',()=>{ renderYears(); if(comparing&&r.value!=='aerial') toggleCompare() }));
+renderYears();
+
+// --- date filter for sightings and annotations
+const M0=(()=>{const d=(DATA.inat_obs.features.map(f=>f.properties.date).filter(Boolean).sort()[0]||'2010-01-01');return new Date(+d.slice(0,4),+d.slice(5,7)-1,1)})();
+const NOW=new Date(); const NM=(NOW.getFullYear()-M0.getFullYear())*12+NOW.getMonth()-M0.getMonth();
+const monthStr=i=>{const d=new Date(M0.getFullYear(),M0.getMonth()+i,1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')};
+const monthLabel=i=>{const d=new Date(M0.getFullYear(),M0.getMonth()+i,1);return d.toLocaleDateString('en-NZ',{month:'short',year:'numeric'})};
+const tFrom=document.getElementById('t-from'), tTo=document.getElementById('t-to');
+[tFrom,tTo].forEach(el=>{el.min=0;el.max=NM;el.step=1}); tFrom.value=0; tTo.value=NM;
+function range(){let a=+tFrom.value,b=+tTo.value; if(a>b)[a,b]=[b,a]; return [a,b]}
+function timeExpr(){const [a,b]=range(); const lo=monthStr(a)+'-01', hi=monthStr(b)+'-31';
+  return ['all',['>=',['to-string',['get','date']],lo],['<=',['to-string',['get','date']],hi]]}
+function annTimeExpr(){const [a,b]=range(); const lo=monthStr(a)+'-01', hi=monthStr(b)+'-31';
+  return ['any',['!',['has','added']],['all',['>=',['slice',['to-string',['get','added']],0,10],lo],['<=',['slice',['to-string',['get','added']],0,10],hi]]]}
+const ANNGEOM={'ann-fill':['==',['geometry-type'],'Polygon'],'ann-line':['!=',['geometry-type'],'Point'],'ann-pt':['==',['geometry-type'],'Point']};
+function applyTime(){
+  if(map.getLayer('inat_obs')) map.setFilter('inat_obs',timeExpr());
+  Object.entries(ANNGEOM).forEach(([id,g])=>{ if(map.getLayer(id)) map.setFilter(id,['all',g,annTimeExpr()]) });
+  const [a,b]=range(); const lo=monthStr(a), hi=monthStr(b);
+  const n=DATA.inat_obs.features.filter(f=>{const m=(f.properties.date||'').slice(0,7);return m>=lo&&m<=hi}).length;
+  document.getElementById('t-read').textContent=`${monthLabel(a)} – ${monthLabel(b)} · ${n} of ${DATA.inat_obs.features.length} sightings`;
+  const f=document.getElementById('dualfill'), w=document.getElementById('dual').clientWidth-16;
+  f.style.left=(8+w*a/NM)+'px'; f.style.width=Math.max(2,w*(b-a)/NM)+'px';
+  drawHist();
+}
+// histogram: sightings per quarter, one hue, out-of-range bars recede
+function drawHist(){
+  const el=document.getElementById('hist'); const W=el.clientWidth||600, H=64, padB=14;
+  const Q=Math.floor(NM/3)+1, counts=new Array(Q).fill(0);
+  DATA.inat_obs.features.forEach(f=>{const d=f.properties.date; if(!d) return; const i=(+d.slice(0,4)-M0.getFullYear())*12+(+d.slice(5,7)-1)-M0.getMonth(); if(i>=0&&i<=NM) counts[Math.floor(i/3)]++});
+  const max=Math.max(...counts,1), bw=(W-16)/Q, [a,b]=range();
+  let svg=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Sightings per quarter, ${monthLabel(0)} to ${monthLabel(NM)}">`;
+  svg+=`<line class="base" x1="8" x2="${W-8}" y1="${H-padB}" y2="${H-padB}"/>`;
+  counts.forEach((c,i)=>{ if(!c) return; const h=Math.max(2,(H-padB-4)*c/max), x=8+i*bw+1, w=Math.max(1,bw-2), y=H-padB-h;
+    const inR=(i*3+2)>=a&&(i*3)<=b; const r=Math.min(2,w/2);
+    svg+=`<path class="bar${inR?'':' out'}" data-i="${i}" data-c="${c}" d="M${x},${H-padB}V${y+r}Q${x},${y} ${x+r},${y}H${x+w-r}Q${x+w},${y} ${x+w},${y+r}V${H-padB}Z"/>`;});
+  for(let yr=M0.getFullYear()+1; yr<=NOW.getFullYear(); yr++){ const i=((yr-M0.getFullYear())*12-M0.getMonth())/3; if(i<0||i>Q) continue; const x=8+i*bw;
+    if((yr-M0.getFullYear())%2===1||W>700) svg+=`<text class="axis" x="${x}" y="${H-2}" text-anchor="middle">${yr}</text>`; }
+  svg+=`<text class="axis" x="8" y="9">${max} a quarter</text></svg>`;
+  el.innerHTML=svg+'<span class="tip" id="htip" hidden></span>';
+}
+document.getElementById('hist').addEventListener('mousemove',e=>{const t=document.getElementById('htip'); const i=e.target.dataset&&e.target.dataset.i;
+  if(i===undefined){t.hidden=true;return} const q=+i; const s=monthLabel(q*3), en=monthLabel(Math.min(NM,q*3+2));
+  t.textContent=`${s} – ${en}: ${e.target.dataset.c} sighting${e.target.dataset.c==='1'?'':'s'}`; const r=e.currentTarget.getBoundingClientRect(); t.style.left=(e.clientX-r.left)+'px'; t.style.top=(e.clientY-r.top)+'px'; t.hidden=false});
+document.getElementById('hist').addEventListener('mouseleave',()=>{const t=document.getElementById('htip'); if(t) t.hidden=true});
+document.getElementById('hist').addEventListener('click',e=>{const i=e.target.dataset&&e.target.dataset.i; if(i===undefined) return; tFrom.value=+i*3; tTo.value=Math.min(NM,+i*3+2); stopPlay(); applyTime()});
+[tFrom,tTo].forEach(el=>el.addEventListener('input',()=>{stopPlay();applyTime()}));
+document.getElementById('t-all').addEventListener('click',()=>{stopPlay();tFrom.value=0;tTo.value=NM;applyTime()});
+let playT=null;
+function stopPlay(){ if(playT){clearInterval(playT);playT=null;document.getElementById('t-play').textContent='▶ Play by year'} }
+document.getElementById('t-play').addEventListener('click',()=>{
+  if(playT){stopPlay();return}
+  let yr=M0.getFullYear(); const step=()=>{ const a=Math.max(0,(yr-M0.getFullYear())*12-M0.getMonth()), b=Math.min(NM,a+11-(yr===M0.getFullYear()?(12-M0.getMonth())-12+M0.getMonth():0));
+    tFrom.value=a; tTo.value=Math.min(NM,(yr-M0.getFullYear())*12-M0.getMonth()+11); applyTime(); yr++; if(yr>NOW.getFullYear()) stopPlay(); };
+  document.getElementById('t-play').textContent='■ Stop'; step(); playT=setInterval(step,1300);
+});
+window.addEventListener('resize',()=>applyTime());
+
+// ---------- settings file + embed code ----------
+let DSET=null, lastOpen=null;
+const SITE=(/pages\.dev$|^localhost$/.test(location.hostname))?location.origin:'https://nz-map-lab.pages.dev';
+const EMBED_LAYERS=['doc_park','wa_tracks','doc_tracks','doc_huts','doc_campsites','wa_access_land','wa_road_parcels','wa_easements','inat_conifers','inat_obs','lidar_contours','lidar_canopy'];
+(async()=>{ try{ const r=await fetch('/config/site.json'); if(r.ok){ DSET=await r.json(); renderEmbedViews(); renderAdmin() } }catch(e){} })();
+// Coordinator links, from admin.links in the settings file (the review count is filled in when records load).
+function renderAdmin(){ const L=DSET&&DSET.admin&&DSET.admin.links; if(!Array.isArray(L)||!L.length) return;
+  document.getElementById('adminlinks').innerHTML=L.map(l=>`<a href="${esc(l.url)}"${/^https?:/.test(l.url)?' target="_blank" rel="noopener"':''}>${esc(l.label)}${l.url==='/review/'?'<span class="n" id="adminrev" hidden></span>':''}</a>`).join('');
+  document.getElementById('adminbar').hidden=false; updateAdminCount() }
+function updateAdminCount(){ const e=document.getElementById('adminrev'); if(!e) return; const n=ANN.features.filter(f=>f.properties.meta&&f.properties.meta.review&&f.properties.meta.review.status==='needs-id').length; e.textContent=n; e.hidden=!n; e.title=n+' need an ID check' }
+function renderEmbedViews(){ const v=DSET&&DSET.embed_views; if(!v) return; const names=Object.keys(v).filter(k=>!k.startsWith('_'));
+  document.getElementById('emb-views').innerHTML='Ready-made views from the settings file: '+names.map(n=>`<a href="${SITE}/embed/?view=${encodeURIComponent(n)}" target="_blank" rel="noopener">${esc(v[n].title||n)}</a>`).join(' · '); }
+function renderAvail(){ const box=document.getElementById('emb-avail'); const prev=new Set([...box.querySelectorAll('input:checked')].map(i=>i.value));
+  const off=EMBED_LAYERS.filter(id=>{const c=document.getElementById('chk-'+id);return c&&!c.checked});
+  box.innerHTML=off.length?'Also offer in the legend: '+off.map(id=>{const L=LAYERS.find(l=>l.id===id);return `<label><input type="checkbox" value="${id}" ${prev.has(id)?'checked':''}>${esc(L?L.label:id)}</label>`}).join(''):''; }
+function updateEmbed(){
+  if(!document.getElementById('embedbox').open) return;
+  const q=new URLSearchParams(); const c=map.getCenter();
+  const title=document.getElementById('emb-title').value.trim(); if(title) q.set('title',title);
+  if(baseMode==='aerial'){ q.set('base','aerial'); q.set('year',yearA) } else q.set('base',baseMode==='ofm'?'topo':baseMode);
+  q.set('center',c.lng.toFixed(5)+','+c.lat.toFixed(5)); q.set('zoom',map.getZoom().toFixed(1));
+  const on=['records',...EMBED_LAYERS.filter(id=>{const k=document.getElementById('chk-'+id);return k&&k.checked})];
+  q.set('layers',on.join(','));
+  const av=[...document.querySelectorAll('#emb-avail input:checked')].map(i=>i.value); if(av.length) q.set('available',av.join(','));
+  const [a,b]=range(); if(a>0||b<NM){ q.set('from',monthStr(a)); q.set('to',monthStr(b)) }
+  if(!document.getElementById('emb-legend').checked) q.set('legend','0');
+  if(document.getElementById('emb-lock').checked) q.set('lock','1');
+  if(document.getElementById('emb-hide').checked) q.set('unconfirmed','hide');
+  const ol=document.getElementById('emb-open'); ol.disabled=!lastOpen; document.getElementById('emb-open-lab').textContent=lastOpen?`Open the card for “${lastOpen.title}”`:'Open a record\'s card: click one on the map first';
+  if(lastOpen&&ol.checked) q.set('open',lastOpen.id);
+  const url=SITE+'/embed/?'+q.toString().replace(/%2C/g,',');
+  document.getElementById('emb-url').value=url;
+  document.getElementById('emb-code').value=`<iframe src="${url}" width="100%" height="480" style="border:0;max-width:100%" loading="lazy" title="${esc(title||'Map')}" allow="fullscreen"></iframe>`;
+  document.getElementById('emb-preview').href=url;
+}
+document.getElementById('embedbox').addEventListener('toggle',()=>{renderAvail();updateEmbed()});
+document.getElementById('embedbox').addEventListener('input',updateEmbed);
+document.getElementById('embedbox').addEventListener('change',updateEmbed);
+map.on('moveend',updateEmbed);
+document.getElementById('layers').addEventListener('change',()=>{renderAvail();updateEmbed()});
+document.getElementById('years').addEventListener('click',()=>setTimeout(updateEmbed,50));
+[tFrom,tTo].forEach(el=>el.addEventListener('input',updateEmbed));
+function copyField(id,btn){ const el=document.getElementById(id); navigator.clipboard.writeText(el.value).then(()=>{document.getElementById('emb-msg').textContent='Copied.'}).catch(()=>{el.select();document.getElementById('emb-msg').textContent='Press Ctrl+C or ⌘C to copy.'}) }
+document.getElementById('emb-copy-url').addEventListener('click',()=>copyField('emb-url'));
+document.getElementById('emb-copy-code').addEventListener('click',()=>copyField('emb-code'));
+
+// ---------- shared annotations (Google Sheet via /api/annotations on the hosted site) ----------
+let SHARED=false, lastLoad=new Date();
+const API='/api/annotations', amsg=document.getElementById('a-msg'), codeEl=document.getElementById('a-code');
+try{codeEl.value=localStorage.getItem('map-edit-code')||'';document.getElementById('a-by').value=localStorage.getItem('map-by')||''}catch(e){}
+codeEl.addEventListener('change',()=>{try{localStorage.setItem('map-edit-code',codeEl.value.trim())}catch(e){}});
+function setShared(fc){ANN=fc;lastLoad=new Date();renderAnnList();refreshAnnSource()}
+async function loadShared(){
+  if(!/^https?:$/.test(location.protocol)) return false;
+  try{const r=await fetch(API,{cache:'no-store'}); if(!r.ok) return false; const j=await r.json(); if(j.type!=='FeatureCollection') return false;
+    SHARED=true; document.getElementById('sharedbar').hidden=false; document.getElementById('a-by-wrap').hidden=false; setShared(j); showPhoneBox(); return true}
+  catch(e){return false}
+}
+async function postShared(body){
+  const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','X-Edit-Code':codeEl.value.trim()},body:JSON.stringify(body)});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok||j.error) throw new Error(j.error||('The server answered '+r.status));
+  return j;
+}
+async function addFeatures(list){
+  amsg.textContent='';
+  if(!SHARED){ANN.features.push(...list);saveAnn();return true}
+  if(!codeEl.value.trim()){amsg.textContent='Enter the editing code under the annotation list first.';codeEl.focus();return false}
+  amsg.textContent='Saving to the shared map…'; amsg.style.color='var(--muted)';
+  try{setShared(await postShared({action:'add',features:list}));amsg.textContent='';amsg.style.color='';return true}
+  catch(e){amsg.style.color='';amsg.textContent='Not saved: '+e.message;return false}
+}
+async function deleteFeature(i){
+  if(!SHARED){ANN.features.splice(i,1);saveAnn();return}
+  const store=document.getElementById('annstore');
+  if(!codeEl.value.trim()){renderAnnList();store.textContent='Enter the editing code to delete annotations.';codeEl.focus();return}
+  try{setShared(await postShared({action:'delete',id:ANN.features[i].properties.id}))}
+  catch(e){renderAnnList();store.textContent='Not deleted: '+e.message}
+}
+document.getElementById('a-refresh').addEventListener('click',loadShared);
+function showPhoneBox(){
+  const url=location.origin+'/add/'; document.getElementById('phonelink').href=url; document.getElementById('phonebox').hidden=false;
+  const q=document.getElementById('qr'); if(q.childNodes.length||!window.QRCode) return;
+  try{ new QRCode(q,{text:url,width:76,height:76,correctLevel:QRCode.CorrectLevel.M}) }catch(e){ q.hidden=true }
+}
+renderAnnList();
+applyTime();
+loadShared();
+
+// ---------- findings: wilding work totals from the drawn areas ----------
+function ringArea(r){ // spherical polygon area in m² (good enough at this scale)
+  let s=0; const R=6378137, rad=Math.PI/180;
+  for(let i=0;i<r.length-1;i++){ const [x1,y1]=r[i],[x2,y2]=r[i+1]; s+=(x2-x1)*rad*(2+Math.sin(y1*rad)+Math.sin(y2*rad)) }
+  return Math.abs(s*R*R/2);
+}
+function renderTally(){
+  const by={}; ANN.features.filter(f=>f.geometry&&f.geometry.type==='Polygon').forEach(f=>{ const c=f.properties.cat; const a=ringArea(f.geometry.coordinates[0])/1e4; by[c]=by[c]||{ha:0,n:0}; by[c].ha+=a; by[c].n++ });
+  const pts=ANN.features.filter(f=>f.properties.meta&&f.properties.meta.task==='wilding-found');
+  const pines=pts.reduce((s,f)=>s+(+((f.properties.meta.fields||{}).count)||1),0);
+  const card=(c,ha,txt)=>`<div><span class="k" style="color:${CATS[c]}">${ha.toLocaleString('en-NZ',{maximumFractionDigits:1})} ha</span><b>${esc(CATLABEL[c]||c)}</b><p>${txt}</p></div>`;
+  const g=c=>by[c]||{ha:0,n:0};
+  const wa=g('Work area'), cl=g('Cleared'), td=g('To do'), rg=g('Regrowth');
+  const pct=wa.ha?` (${Math.round(cl.ha/wa.ha*100)}% of the work area)`:'';
+  document.getElementById('tally').innerHTML= (wa.n||cl.n||td.n||rg.n)
+   ? card('Work area',wa.ha,`${wa.n} outline${wa.n===1?'':'s'} drawn.`)+card('Cleared',cl.ha,`${cl.n} area${cl.n===1?'':'s'}${pct}.`)+card('To do',td.ha,`${td.n} area${td.n===1?'':'s'} still to clear.`)+card('Regrowth',rg.ha,`${rg.n} area${rg.n===1?'':'s'} with pines coming back. ${pines} pine${pines===1?'':'s'} recorded in the field.`)
+   : `<div><b>Nothing drawn yet</b><p>Use Area under the map, choose “Wilding area” and a status. The totals appear here, and print with the page.</p></div>`;
+}
+const _ra=refreshAnnSource; refreshAnnSource=function(){ _ra(); renderTally() };
+renderTally();
+const inat=DATA.inat_obs.features.concat(DATA.inat_conifers.features), nc=inat.filter(f=>(f.properties.lic||'').includes('nc')).length;
+const tb=document.querySelector('#ltable tbody');
+LAYERS.forEach(L=>{
+  const P=PUB[L.pub]; const lic=L.pub==='inat'?`<span class="lic-warn">${nc} of ${inat.length} are non‑commercial</span>`:(/not stated/i.test(P[2])?`<span class="lic-warn">${P[2]}</span>`:P[2]);
+  const tr=document.createElement('tr');
+  tr.innerHTML=`<td><b>${L.label}</b></td><td><a href="${P[1]}" target="_blank" rel="noopener">${P[0]}</a><br><span class="hint mono">${P[1].replace('https://','')}</span></td><td>${lic}</td><td class="num">${L.lazy?'on demand':(L.countText||L.count.toLocaleString('en-NZ'))}</td><td>${esc(L.cov)}</td><td>${L.why}</td>`;
+  tb.appendChild(tr);
+});
+[['Aerial photos, '+LINZY.join(', '),'Hawke’s Bay rural aerial surveys, served full detail through the site. Eastern side of the park only.'],
+ ['Aerial photos, '+HIST.join(', '),'Older surveys from the LINZ imagery archive, cut to the Kashmir Road block. 1980 shows no plantation; 1995 shows it newly planted.'],
+ ['Topo map and 10 m satellite','NZ Topo50 (gridless) and the 2025–26 national satellite mosaic, for the whole park.']].forEach(([n,w])=>{
+  const tr=document.createElement('tr'); tr.innerHTML=`<td><b>${n}</b></td><td><a href="https://www.linz.govt.nz" target="_blank" rel="noopener">Toitū Te Whenua LINZ</a><br><span class="hint mono">www.linz.govt.nz</span></td><td>CC BY 4.0</td><td class="num">tiles</td><td>${n.startsWith('Topo')?'Park':'Block / east'}</td><td>${w}</td>`; tb.appendChild(tr) });
+{ const tr=document.createElement('tr');
+  tr.innerHTML=`<td><b>Species suggestions (phone form)</b></td><td><a href="https://github.com/Waikato/aotearoa-species-classifier" target="_blank" rel="noopener">TAIAO, University of Waikato and University of Canterbury</a><br><span class="hint mono">github.com/Waikato/aotearoa-species-classifier</span></td><td><span class="lic-warn">CC BY-NC 4.0 (non‑commercial)</span></td><td class="num">14,991 species</td><td>Phone</td><td>Aotearoa Species Classifier. Suggests the most likely species from a photo, on the phone and without signal once downloaded. Knows the main wilding conifers. Used with permission from Prof. Eibe Frank.</td>`;
+  tb.appendChild(tr); }
+document.getElementById('attrib').innerHTML=`Data: <a href="https://www.doc.govt.nz" target="_blank" rel="noopener">Department of Conservation</a> (CC BY 4.0); <a href="https://www.herengaanuku.govt.nz" target="_blank" rel="noopener">Herenga ā Nuku Aotearoa, the Outdoor Access Commission</a>; sightings from <a href="https://inaturalist.nz" target="_blank" rel="noopener">iNaturalist NZ</a> observers under each record's licence. Downloaded ${new Date('2026-10-26').toLocaleDateString('en-NZ')}. Aerial photos, Topo50, satellite imagery and LiDAR © <a href="https://www.linz.govt.nz" target="_blank" rel="noopener">Toitū Te Whenua LINZ</a> (CC BY 4.0); LiDAR and older aerials via the LINZ open stores on AWS. Species suggestions in the phone form: the <a href="https://github.com/Waikato/aotearoa-species-classifier" target="_blank" rel="noopener">Aotearoa Species Classifier</a> by the TAIAO project (CC BY-NC 4.0), run with ONNX Runtime (MIT). Map built with MapLibre GL JS.`;
+</script>
