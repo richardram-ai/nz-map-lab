@@ -97,11 +97,11 @@ const CHAPTERS = [
   { id:'y1995', at:{center:[176.16,-39.95],zoom:13.2,pitch:0,bearing:0}, show:['a1995','block','roadend'], badge:'Aerial 1995–96',
     html:`<p class="kicker">1995–96</p><h2>Newly planted</h2>
       <p>By the mid-1990s the plantation has been planted.</p>
-      <p class="small">Survey SN9485 covers about 87% of the block.</p>` },
-  { id:'y2006', at:{center:[176.16,-39.945],zoom:13.4,pitch:0,bearing:0}, show:['a2006','block','roadend'], badge:'Aerial 2006',
+      <p class="small">Survey SN9485 covers about 87% of the block; the base map shows where it stops.</p>` },
+  { id:'y2006', at:{center:[176.16,-39.955],zoom:13.4,pitch:0,bearing:0}, show:['a2006','block','roadend'], badge:'Aerial 2006',
     html:`<p class="kicker">2006</p><h2>The trees have grown</h2>
       <p>Ten years on, the plantation is well grown, and mature pines spread seed on the wind.</p>
-      <p class="small">Colour survey SN50529c covers the north half of the block.</p>` },
+      <p class="small">Colour survey SN50529c covers the southern half of the block, including the plantation.</p>` },
   { id:'y2023', at:{center:[176.155,-39.952],zoom:14.2,pitch:0,bearing:0}, show:['a2023','block','roadend'], badge:'Aerial 2023–24',
     html:`<p class="kicker">2023–24</p><h2>A seed source on the park's edge</h2>
       <p>The 12.5 cm aerial from 2023–24 shows the dark block of mature pines at the road end, before harvest.</p>` },
@@ -153,7 +153,7 @@ async function start(){
 
     // Aerials, below the map labels
     for (const y of ['1980','1995','2006']) {
-      map.addSource('src'+y, { type:'image', url:`${ORIGIN}/imagery/aerial-${y}.jpg`, coordinates:box });
+      map.addSource('src'+y, { type:'image', url:`${ORIGIN}/imagery/aerial-${y}.${y==='1980'?'jpg':'webp'}`, coordinates:box });
       map.addLayer({ id:'a'+y, type:'raster', source:'src'+y, layout:{visibility:'none'}, paint:{'raster-fade-duration':0} }, beforeId);
     }
     for (const y of ['2010','2023','2025']) {
