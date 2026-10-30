@@ -12,6 +12,7 @@ What differs from main:
 | `scripts/ruahine_rasters.py` | Older aerials cut to the block, and LiDAR canopy, contours and height shading (2023–24 Hawke's Bay LiDAR). |
 | `functions/linz/aerial` | Also serves `?src=topo` and `?src=sat` (layers named in `area.base_layers`), from zoom 8. |
 | `functions/api/annotations.js` | Date fields, and a choice field can set the record's category (`sets_category`). Worth merging to main. |
+| `story/` | A scrolling story page (Mapbox GL JS, after the mapbox/storytelling template): park, walking access, Kashmir Road, aerials 1980–2025, and the group's drawn wilding areas live from the records. Token from the Cloudflare secret `MAPBOX_TOKEN` via `functions/api/mapbox-token.js` (a URL-restricted public token). |
 | `add/` | Hides desktop-only tasks, uses the latest aerial year, and adds "Save the map for offline use" (aerial tiles for the block to zoom 17, plus the photo helper). Worth merging to main. |
 
 Rebuild: `python3 scripts/ruahine_fetch.py WORK/layers && python3 scripts/ruahine_rasters.py WORK && python3 scripts/ruahine_page.py WORK`.

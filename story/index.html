@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en-NZ">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Ruahine Wilding Pines Story</title>
+<link rel="stylesheet" href="/fonts/fonts.css">
+<link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/v3.9.4/mapbox-gl.css">
+<style>
+:root{
+  --ink:#1d2a24; --muted:#5a6660; --line:#d6ddd8; --accent:#2c7a4b; --card:rgba(255,255,255,.96);
+  --font:"Atkinson Hyperlegible Next","Segoe UI",system-ui,-apple-system,Arial,sans-serif;
+  --mono:"Atkinson Hyperlegible Mono",ui-monospace,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;font-family:var(--font);color:var(--ink);background:#fff}
+#map{position:fixed;inset:0}
+#story{position:relative;z-index:2;width:420px;max-width:100%;padding:0 0 0 24px;pointer-events:none}
+.step{min-height:100vh;display:flex;align-items:center;padding:24px 0}
+.step:first-child{min-height:85vh}
+.card{pointer-events:auto;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent);
+  border-radius:6px;padding:20px 22px;box-shadow:0 2px 14px rgba(0,0,0,.12);opacity:.55;transition:opacity .4s}
+.step.active .card{opacity:1}
+.kicker{font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin:0 0 6px}
+h1{font-size:28px;line-height:1.15;margin:0 0 10px}
+h2{font-size:21px;line-height:1.2;margin:0 0 10px}
+p{font-size:16px;line-height:1.5;margin:0 0 10px}
+p:last-child{margin-bottom:0}
+.small{font-size:13px;color:var(--muted)}
+.legend{list-style:none;padding:0;margin:8px 0 0}
+.legend li{display:flex;align-items:center;gap:8px;font-size:14px;margin:4px 0}
+.sw{width:14px;height:14px;border-radius:3px;flex:none;border:2px solid}
+.ln{width:18px;height:0;border-top:3px solid;flex:none}
+.links a{display:inline-block;margin:4px 8px 4px 0;padding:7px 12px;border:1px solid var(--accent);border-radius:4px;color:var(--accent);text-decoration:none;font-weight:600;font-size:14px}
+.links a:hover{background:#eef6f1}
+#badge{position:fixed;top:12px;right:12px;z-index:3;background:var(--card);border:1px solid var(--line);border-radius:4px;
+  padding:6px 10px;font-family:var(--mono);font-size:13px;display:none}
+#msg{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:5;padding:24px;text-align:center}
+#msg div{background:#fff;border:1px solid var(--line);border-left:4px solid #b8334a;padding:18px 22px;max-width:420px;border-radius:6px}
+.hint{font-size:13px;color:var(--muted);margin-top:10px}
+@media (max-width:700px){
+  #story{width:100%;padding:0 12px}
+  .step{align-items:flex-end;padding-bottom:16px}
+  .card{padding:16px}
+  h1{font-size:24px}
+}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="badge"></div>
+<div id="msg"><div id="msgtext"></div></div>
+<div id="story"></div>
+
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.9.4/mapbox-gl.js"></script>
+<script>
+// Ruahine wilding pines: a scrolling story. Each chapter moves the map and shows a set of layers.
+// Data: DOC and Herenga ā Nuku layers in /data, LINZ aerials through /linz/aerial (key added on the server),
+// older aerials in /imagery, and the group's drawn wilding areas live from /api/annotations.
+const FOCUS = { west:176.12, south:-39.975, east:176.2, north:-39.925 };
+const ROAD_END = [176.147, -39.956];
+const CAT = { 'Work area':'#5b4a8a', 'Cleared':'#2c7a4b', 'To do':'#b8334a', 'Regrowth':'#c47d14' };
+const CAT_LABEL = { 'Work area':'Work area (outline)', 'Cleared':'Cleared', 'To do':'Not yet cleared', 'Regrowth':'Pines coming back' };
+const ORIGIN = location.origin;
+
+// Layer groups a chapter can switch on. Everything else is hidden in that chapter.
+const GROUPS = {
+  park:   ['park-fill','park-line'],
+  tracks: ['wa-tracks','doc-tracks','huts'],
+  block:  ['block-line'],
+  roadend:['roadend'],
+  a1980:['a1980'], a1995:['a1995'], a2006:['a2006'],
+  a2010:['a2010'], a2023:['a2023'], a2025:['a2025'],
+  wilding:['wild-fill','wild-line'],
+};
+
+const CHAPTERS = [
+  { id:'intro', at:{center:[176.094,-39.886],zoom:9.3,pitch:0,bearing:0}, show:['park'], badge:'',
+    html:`<p class="kicker">Ruahine wilding pines · test map</p>
+      <h1>Clearing wilding pines at the end of Kashmir Road</h1>
+      <p>Ruahine Forest Park covers about 95,000 hectares of public conservation land, spanning Hawke's Bay and Manawatū-Whanganui. This story follows one small corner of it, where a pine plantation became a source of wilding pines and is now being cleared.</p>
+      <p class="hint">Scroll down to move through the story.</p>` },
+  { id:'access', at:{center:[176.07,-39.9],zoom:10.2,pitch:45,bearing:-15}, show:['park','tracks'], badge:'',
+    html:`<p class="kicker">Getting there</p><h2>Walking access across the park</h2>
+      <p>The park's tracks and huts come from open data published by the Department of Conservation and Herenga ā Nuku, the outdoor access commission.</p>
+      <ul class="legend"><li><span class="ln" style="border-color:#c0392b"></span>DOC tracks</li>
+      <li><span class="ln" style="border-color:#e67e22;border-top-style:dashed"></span>Herenga ā Nuku tracks and access</li>
+      <li><span class="sw" style="border-color:#1d2a24;background:#fff;border-radius:50%"></span>Huts</li></ul>` },
+  { id:'kashmir', at:{center:[176.16,-39.95],zoom:12.6,pitch:55,bearing:20}, show:['park','tracks','block','roadend'], badge:'',
+    html:`<p class="kicker">The focus area</p><h2>Kashmir Road, Ashley Clinton</h2>
+      <p>Kashmir Road runs west into the park on its Hawke's Bay side. The box marks the block mapped in detail for the wilding pine work, about 6.8 by 5.6 kilometres.</p>` },
+  { id:'y1980', at:{center:[176.16,-39.95],zoom:13.2,pitch:0,bearing:0}, show:['a1980','block','roadend'], badge:'Aerial 1980',
+    html:`<p class="kicker">1980</p><h2>Before the plantation</h2>
+      <p>The 1980 aerial survey shows no plantation at the road end.</p>
+      <p class="small">Black and white survey SN5761, Toitū Te Whenua LINZ.</p>` },
+  { id:'y1995', at:{center:[176.16,-39.95],zoom:13.2,pitch:0,bearing:0}, show:['a1995','block','roadend'], badge:'Aerial 1995–96',
+    html:`<p class="kicker">1995–96</p><h2>Newly planted</h2>
+      <p>By the mid-1990s the plantation has been planted.</p>
+      <p class="small">Survey SN9485 covers about 87% of the block.</p>` },
+  { id:'y2006', at:{center:[176.16,-39.945],zoom:13.4,pitch:0,bearing:0}, show:['a2006','block','roadend'], badge:'Aerial 2006',
+    html:`<p class="kicker">2006</p><h2>The trees have grown</h2>
+      <p>Ten years on, the plantation is well grown, and mature pines spread seed on the wind.</p>
+      <p class="small">Colour survey SN50529c covers the north half of the block.</p>` },
+  { id:'y2023', at:{center:[176.155,-39.952],zoom:14.2,pitch:0,bearing:0}, show:['a2023','block','roadend'], badge:'Aerial 2023–24',
+    html:`<p class="kicker">2023–24</p><h2>A seed source on the park's edge</h2>
+      <p>The 12.5 cm aerial from 2023–24 shows the dark block of mature pines at the road end, before harvest.</p>` },
+  { id:'y2025', at:{center:[176.155,-39.952],zoom:14.2,pitch:0,bearing:0}, show:['a2025','block','roadend'], badge:'Aerial 2025–26',
+    html:`<p class="kicker">2024–26</p><h2>Harvesting the seed source</h2>
+      <p>DOC harvested the seed-source pines at the road end with Forest 360 from October 2024 to mid-2025, with five years of follow-up pest plant and animal control.</p>
+      <p>The 2025–26 aerial shows a cleared strip on the north-west edge, with much of the block still standing when it was flown.</p>` },
+  { id:'work', at:{center:[176.16,-39.952],zoom:13.6,pitch:55,bearing:35}, show:['a2025','block','wilding'], badge:'Aerial 2025–26',
+    html:`<p class="kicker">The work now</p><h2>Mapping what's cleared, what's left and what comes back</h2>
+      <div id="work-status"><p>Loading the group's mapped areas…</p></div>
+      <ul class="legend">${Object.keys(CAT).map(c=>`<li><span class="sw" style="border-color:${CAT[c]};background:${CAT[c]}33"></span>${CAT_LABEL[c]}</li>`).join('')}</ul>` },
+  { id:'outro', at:{center:[176.16,-39.95],zoom:12.2,pitch:30,bearing:0}, show:['park','tracks','block','wilding'], badge:'',
+    html:`<p class="kicker">Explore and take part</p><h2>See the full map</h2>
+      <p>The working map has every aerial year, LiDAR canopy and contours, and the field records. Group members add records from the phone form, which works offline.</p>
+      <p class="links"><a href="/">Open the map</a><a href="/add/">Phone form</a><a href="/explore/">Explore in 3D</a></p>
+      <p class="small">Data: Department of Conservation, Herenga ā Nuku Aotearoa and Toitū Te Whenua LINZ, all CC BY 4.0. Base map © Mapbox © OpenStreetMap contributors.</p>` },
+];
+
+// ---- Story markup
+const story = document.getElementById('story');
+story.innerHTML = CHAPTERS.map(c => `<section class="step" id="${c.id}"><div class="card">${c.html}</div></section>`).join('');
+
+function showMsg(t){ document.getElementById('msgtext').innerHTML = t; document.getElementById('msg').style.display='flex'; }
+
+async function start(){
+  let token;
+  try {
+    const r = await fetch('/api/mapbox-token'); const j = await r.json();
+    if (!j.token) throw new Error(j.error || 'No token');
+    token = j.token;
+  } catch(e){ showMsg('<b>The map could not load.</b><br>' + e.message); return; }
+  mapboxgl.accessToken = token;
+
+  const first = CHAPTERS[0].at;
+  const map = new mapboxgl.Map({
+    container:'map', style:'mapbox://styles/mapbox/outdoors-v12',
+    center:first.center, zoom:first.zoom, pitch:first.pitch, bearing:first.bearing,
+    scrollZoom:false, attributionControl:true, projection:'mercator',
+  });
+  map.addControl(new mapboxgl.NavigationControl({showCompass:true}), 'bottom-right');
+
+  map.on('load', async () => {
+    map.addSource('dem', { type:'raster-dem', url:'mapbox://mapbox.mapbox-terrain-dem-v1', tileSize:512, maxzoom:14 });
+    map.setTerrain({ source:'dem', exaggeration:1.4 });
+
+    const beforeId = (map.getStyle().layers.find(l => l.type === 'symbol') || {}).id;
+    const box = [[FOCUS.west,FOCUS.north],[FOCUS.east,FOCUS.north],[FOCUS.east,FOCUS.south],[FOCUS.west,FOCUS.south]];
+    const lb = [FOCUS.west, FOCUS.south, FOCUS.east, FOCUS.north];
+
+    // Aerials, below the map labels
+    for (const y of ['1980','1995','2006']) {
+      map.addSource('src'+y, { type:'image', url:`${ORIGIN}/imagery/aerial-${y}.jpg`, coordinates:box });
+      map.addLayer({ id:'a'+y, type:'raster', source:'src'+y, layout:{visibility:'none'}, paint:{'raster-fade-duration':0} }, beforeId);
+    }
+    for (const y of ['2010','2023','2025']) {
+      map.addSource('src'+y, { type:'raster', tiles:[`${ORIGIN}/linz/aerial/{z}/{x}/{y}.png?year=${y}`], tileSize:256, minzoom:8, maxzoom:19, bounds:lb,
+        attribution:'Aerial © Toitū Te Whenua LINZ, CC BY 4.0' });
+      map.addLayer({ id:'a'+y, type:'raster', source:'src'+y, layout:{visibility:'none'} }, beforeId);
+    }
+
+    // Park, tracks, huts
+    map.addSource('park', { type:'geojson', data:ORIGIN+'/data/doc_park.geojson' });
+    map.addLayer({ id:'park-fill', type:'fill', source:'park', layout:{visibility:'none'}, paint:{'fill-color':'#2c7a4b','fill-opacity':0.12} }, beforeId);
+    map.addLayer({ id:'park-line', type:'line', source:'park', layout:{visibility:'none'}, paint:{'line-color':'#2c7a4b','line-width':2} });
+    map.addSource('wa', { type:'geojson', data:ORIGIN+'/data/wa_tracks.geojson' });
+    map.addLayer({ id:'wa-tracks', type:'line', source:'wa', layout:{visibility:'none'}, paint:{'line-color':'#e67e22','line-width':1.6,'line-dasharray':[2,1.5]} });
+    map.addSource('doc', { type:'geojson', data:ORIGIN+'/data/doc_tracks.geojson' });
+    map.addLayer({ id:'doc-tracks', type:'line', source:'doc', layout:{visibility:'none'}, paint:{'line-color':'#c0392b','line-width':2} });
+    map.addSource('huts', { type:'geojson', data:ORIGIN+'/data/doc_huts.geojson' });
+    map.addLayer({ id:'huts', type:'circle', source:'huts', layout:{visibility:'none'}, paint:{'circle-radius':4,'circle-color':'#fff','circle-stroke-color':'#1d2a24','circle-stroke-width':2} });
+
+    // Focus block and road end
+    map.addSource('block', { type:'geojson', data:{type:'Feature',properties:{},geometry:{type:'Polygon',coordinates:[[...box, box[0]]]}} });
+    map.addLayer({ id:'block-line', type:'line', source:'block', layout:{visibility:'none'}, paint:{'line-color':'#ffd166','line-width':2.5,'line-dasharray':[3,2]} });
+    map.addSource('roadend', { type:'geojson', data:{type:'Feature',properties:{name:'Kashmir Road end'},geometry:{type:'Point',coordinates:ROAD_END}} });
+    map.addLayer({ id:'roadend', type:'circle', source:'roadend', layout:{visibility:'none'}, paint:{'circle-radius':6,'circle-color':'#ffd166','circle-stroke-color':'#1d2a24','circle-stroke-width':2} });
+
+    // The group's drawn wilding areas, live from the records
+    let wild = { type:'FeatureCollection', features:[] };
+    try {
+      const r = await fetch('/api/annotations'); const fc = await r.json();
+      wild.features = (fc.features || []).filter(f => f.geometry && f.geometry.type === 'Polygon' && CAT[f.properties && f.properties.cat]);
+    } catch {}
+    map.addSource('wild', { type:'geojson', data:wild });
+    const col = ['match',['get','cat'], ...Object.entries(CAT).flat(), '#888'];
+    map.addLayer({ id:'wild-fill', type:'fill', source:'wild', filter:['!=',['get','cat'],'Work area'], layout:{visibility:'none'}, paint:{'fill-color':col,'fill-opacity':0.35} });
+    map.addLayer({ id:'wild-line', type:'line', source:'wild', layout:{visibility:'none'}, paint:{'line-color':col,'line-width':2.5} });
+    workStatus(wild);
+
+    setChapter(0, true);
+    observe();
+  });
+
+  function workStatus(fc){
+    const el = document.getElementById('work-status'); if (!el) return;
+    if (!fc.features.length) {
+      el.innerHTML = `<p>The group outlines each area on the working map: the overall work area, what has been cleared, what is still to do, and where pines are coming back. The areas appear here as they are drawn.</p>`;
+      return;
+    }
+    const ha = {};
+    for (const f of fc.features) { const c = f.properties.cat; ha[c] = (ha[c] || 0) + ringArea(f.geometry.coordinates[0]) / 1e4; }
+    const rows = Object.keys(CAT).filter(c => ha[c]).map(c => `<li><span class="sw" style="border-color:${CAT[c]};background:${CAT[c]}33"></span>${CAT_LABEL[c]}: <b>${ha[c].toFixed(1)} ha</b></li>`).join('');
+    el.innerHTML = `<p>Areas mapped by the group so far, live from the working map:</p><ul class="legend">${rows}</ul>`;
+  }
+
+  let current = -1;
+  function setChapter(i, instant){
+    if (i === current) return; current = i;
+    const c = CHAPTERS[i];
+    const on = new Set(c.show.flatMap(g => GROUPS[g]));
+    for (const ids of Object.values(GROUPS)) for (const id of ids) if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', on.has(id) ? 'visible' : 'none');
+    const b = document.getElementById('badge'); b.textContent = c.badge; b.style.display = c.badge ? 'block' : 'none';
+    document.querySelectorAll('.step').forEach((s, k) => s.classList.toggle('active', k === i));
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    (instant || reduce ? map.jumpTo(c.at) : map.flyTo({ ...c.at, duration:3000, essential:true }));
+  }
+
+  function observe(){
+    const io = new IntersectionObserver(entries => {
+      for (const e of entries) if (e.isIntersecting) setChapter(CHAPTERS.findIndex(c => c.id === e.target.id));
+    }, { rootMargin:'-45% 0px -45% 0px' });
+    document.querySelectorAll('.step').forEach(s => io.observe(s));
+  }
+}
+
+// Area of a lon/lat ring in square metres (spherical approximation)
+function ringArea(ring){
+  const R = 6378137, rad = Math.PI / 180; let a = 0;
+  for (let i = 0; i < ring.length - 1; i++) {
+    const [x1,y1] = ring[i], [x2,y2] = ring[i+1];
+    a += (x2 - x1) * rad * (2 + Math.sin(y1 * rad) + Math.sin(y2 * rad));
+  }
+  return Math.abs(a * R * R / 2);
+}
+
+start();
+</script>
+</body>
+</html>
