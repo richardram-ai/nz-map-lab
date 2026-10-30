@@ -1,6 +1,7 @@
 // Keeps the phone form working with poor or no signal.
-// The page and its libraries are cached; recently viewed map tiles are cached; saving uses the page's own queue.
-const SHELL = 'nzml-shell-v10', TILES = 'nzml-tiles-v1', MAX_TILES = 400;
+// The page and its libraries are cached; recently viewed map tiles are cached, and tiles saved for offline use are kept;
+// saving uses the page's own queue.
+const SHELL = 'nzml-shell-v12', TILES = 'nzml-tiles-v1', MAX_TILES = 400;   // tiles saved with 'Save the map for offline use' live in nzml-offline-v1, never trimmed
 const SHELL_URLS = ['/add/', '/add/identify.js', '/config/site.json', '/add/manifest.webmanifest', '/add/icon-192.png', '/fonts/fonts.css',
   ...[400, 600, 700].flatMap(w => ['latin', 'latin-ext'].map(s => `/fonts/atkinson-hyperlegible-next-${s}-${w}-normal.woff2`)),
   '/fonts/atkinson-hyperlegible-next-latin-400-italic.woff2',
@@ -15,7 +16,7 @@ self.addEventListener('fetch', e => {
   if (url.pathname.startsWith('/api/')) return;               // always live
   if (url.pathname.startsWith('/linz/')) {                     // map tiles: cache first, keep a few hundred
     e.respondWith(caches.open(TILES).then(async c => {
-      const hit = await c.match(req); if (hit) return hit;
+      const hit = (await caches.match(req.url, { cacheName: 'nzml-offline-v1' })) || (await c.match(req)); if (hit) return hit;
       const res = await fetch(req); if (res.ok) { c.put(req, res.clone()); c.keys().then(k => { if (k.length > MAX_TILES) c.delete(k[0]); }); }
       return res;
     }));

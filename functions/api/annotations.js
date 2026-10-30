@@ -71,6 +71,10 @@ function cleanTask(p, cfg, hasPhotos, ai) {
       fields[fd.id] = Math.round(n * 100) / 100;
     } else if (fd.type === 'yesno') {
       fields[fd.id] = v === true || v === 'yes';
+    } else if (fd.type === 'date') {
+      const d = String(v).trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || isNaN(Date.parse(d))) throw new Error(`“${fd.label}”: give a date.`);
+      fields[fd.id] = d;
     } else {
       fields[fd.id] = String(v).trim().slice(0, fd.max || 200);
     }
@@ -120,6 +124,11 @@ function cleanFeature(f, cfg) {
     via: ['phone', 'desktop', 'import'].includes(m.via) ? m.via : null,
   };
   if (ai) meta.ai = ai;
+  // An area walked with the phone form: how it was captured, for whoever checks it.
+  if (m.walk && typeof m.walk === 'object' && geometry.type === 'Polygon') {
+    meta.walk = { points: num(m.walk.points, 0, 1000), corners: num(m.walk.corners, 0, 1000), perimeter_m: num(m.walk.perimeter_m, 0, 1e6),
+      area_m2: num(m.walk.area_m2, 0, 1e9), started: str(m.walk.started, 32) };
+  }
   if (taskInfo) {
     meta.task = taskInfo.task.id;
     meta.fields = taskInfo.fields;
@@ -127,7 +136,13 @@ function cleanFeature(f, cfg) {
   }
   const cats = (cfg && cfg.categories || []).map(c => c.id);
   const catOk = c => CATS.includes(c) || cats.includes(c);
-  const cat = taskInfo && taskInfo.task.category && catOk(taskInfo.task.category) ? taskInfo.task.category : (catOk(p.cat) ? p.cat : 'Observation');
+  // A choice field can set the category (sets_category), e.g. a wilding area's status picks Cleared or Regrowth.
+  let taskCat = taskInfo && taskInfo.task.category;
+  if (taskInfo) for (const fd of taskInfo.task.fields) {
+    const v = taskInfo.fields[fd.id];
+    if (fd.sets_category && typeof v === 'string' && fd.sets_category[v]) taskCat = fd.sets_category[v];
+  }
+  const cat = taskCat && catOk(taskCat) ? taskCat : (catOk(p.cat) ? p.cat : 'Observation');
   return {
     type: 'Feature',
     geometry,

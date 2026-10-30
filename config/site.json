@@ -14,6 +14,7 @@
     "zoom": 16.3,
     "aerial_years": [2013, 2015, 2017, 2018, 2022, 2024],
     "linz_layers": { "2013": 52338, "2015": 88138, "2017": 99251, "2018": 105192, "2022": 111539, "2024": 119050 },
+    "offline": { "_about": "The phone form's 'Save the map for offline use' button saves aerial tiles of the square up to this zoom.", "max_zoom": 18 },
     "historical_aerials": {
       "_about": "Older surveys with no LINZ map service, cut once to an image of the square (scripts/hist_aerial.py). Shown up to zoom 18.5.",
       "1979": { "image": "/imagery/aerial-1979.jpg", "note": "1979–80, 37.5 cm, black and white", "survey": "SN5408" },

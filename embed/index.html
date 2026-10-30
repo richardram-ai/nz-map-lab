@@ -85,7 +85,8 @@ function showMsg(t){ $('msg').textContent = t; $('msg').hidden = false; }
   const q = new URLSearchParams(location.search);
   const view = (cfg.embed_views || {})[q.get('view')] || {};
   // Settings: defaults, then the named view, then anything in the address.
-  const S = { base:'aerial', year:2024, zoom:cfg.area.zoom, center:cfg.area.centre, layers:['records'], available:[], legend:true, lock:false,
+  const years = Object.keys(cfg.area.linz_layers || {}).map(Number).sort((a, b) => a - b);
+  const S = { base:'aerial', year:years[years.length - 1] || 2024, zoom:cfg.area.zoom, center:cfg.area.centre, layers:['records'], available:[], legend:true, lock:false,
               tasks:[], cats:[], from:'', to:'', unconfirmed:'show', open:'', title:'', square:true, ...view };
   for (const k of ['base','title','open','from','to','unconfirmed']) if (q.has(k)) S[k] = q.get(k);
   for (const k of ['year','zoom']) if (q.has(k)) S[k] = Number(q.get(k));
@@ -107,8 +108,16 @@ function showMsg(t){ $('msg').textContent = t; $('msg').hidden = false; }
     style.layers.push({ id:'aer', type:'raster', source:'aer', paint:{ 'raster-fade-duration':0 } });
     style.sources.credit = { type:'geojson', data:{ type:'FeatureCollection', features:[] }, attribution:'Aerial ' + S.year + ' © Toitū Te Whenua LINZ, CC BY 4.0' };
   } else if (S.base === 'aerial') {
-    style.sources.aer = { type:'raster', tiles:[location.origin + '/linz/aerial/{z}/{x}/{y}.png?year=' + (S.year || 2024)], tileSize:256, minzoom:12, maxzoom:21,
+    // Satellite underneath and the neighbouring region's survey (area.linz_layers_west), when the settings have them
+    if ((cfg.area.base_layers || {}).sat) { style.sources.sat = { type:'raster', tiles:[location.origin + '/linz/aerial/{z}/{x}/{y}.png?src=sat'], tileSize:256, minzoom:8, maxzoom:15 }; style.layers.push({ id:'sat', type:'raster', source:'sat' }); }
+    if ((cfg.area.linz_layers_west || {})[S.year]) { style.sources.aerw = { type:'raster', tiles:[location.origin + '/linz/aerial/{z}/{x}/{y}.png?year=' + S.year + '&side=west'], tileSize:256, minzoom:10, maxzoom:21 }; style.layers.push({ id:'aerw', type:'raster', source:'aerw' }); }
+    style.sources.aer = { type:'raster', tiles:[location.origin + '/linz/aerial/{z}/{x}/{y}.png?year=' + S.year], tileSize:256, minzoom:10, maxzoom:21,
                           attribution:'Aerial ' + (S.year || 2024) + ' © Toitū Te Whenua LINZ, CC BY 4.0' };
+    style.layers.push({ id:'aer', type:'raster', source:'aer' });
+  } else if ((S.base === 'topo' || S.base === 'sat') && (cfg.area.base_layers || {})[S.base]) {
+    // Topo50 or 10 m satellite, from LINZ through the same tile function (when the settings name them in area.base_layers)
+    style.sources.aer = { type:'raster', tiles:[location.origin + '/linz/aerial/{z}/{x}/{y}.png?src=' + S.base], tileSize:256, minzoom:8, maxzoom:S.base === 'topo' ? 18 : 15,
+                          attribution:(S.base === 'topo' ? 'Topo50' : 'Satellite') + ' © Toitū Te Whenua LINZ, CC BY 4.0' };
     style.layers.push({ id:'aer', type:'raster', source:'aer' });
   }
   const map = new maplibregl.Map({ container:'map', style, center:S.center, zoom:S.zoom, attributionControl:{ compact:true }, maxZoom: hist ? 18.5 : 22,

@@ -53,6 +53,16 @@ textarea{min-height:76px;resize:vertical}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
 .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .tasks{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mode{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1.5px solid var(--rule);border-radius:8px;overflow:hidden}
+.mode button{font:inherit;padding:9px 8px;border:0;background:var(--bg);color:var(--ink);min-height:44px}
+.mode button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);font-weight:700}
+.walk{display:flex;flex-direction:column;gap:8px;border:1.5px solid var(--rule);border-radius:8px;padding:10px}
+.walk .row .btn{flex:1 1 auto}
+.walk .stat{font-variant-numeric:tabular-nums;font-size:.9rem}
+.walk .btn:disabled{opacity:.4}
+.walk .btn.rec{border-color:var(--alert);color:var(--alert);font-weight:700}
+.offline{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;margin-top:6px}
+.offline .hint{font-size:.78rem}
 .tasks button{font:inherit;text-align:left;padding:8px 10px;border-radius:8px;border:1.5px solid var(--rule);background:var(--bg);color:var(--ink);min-height:48px;display:flex;flex-direction:column;gap:1px}
 .tasks button b{font-size:.98rem} .tasks button span{font-size:.75rem;color:var(--muted)}
 .tasks button[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1.5px var(--accent)}
@@ -148,14 +158,22 @@ main>fieldset>legend+*{clear:both}
 
   <div class="where">
   <h2 class="stephead"><span class="step">1</span>Where is it?</h2>
-  <p class="stephint">Your phone places the red pin at your location. Drag it, or tap the map, to put it exactly where the thing is.</p>
+  <div class="mode" role="group" aria-label="How to place the record"><button type="button" id="mode-pin" aria-pressed="true">Pin a spot</button><button type="button" id="mode-walk" aria-pressed="false">Walk a boundary</button></div>
+  <p class="stephint" id="pinhint">Your phone places the red pin at your location. Drag it, or tap the map, to put it exactly where the thing is.</p>
+  <p class="stephint" id="walkhint" hidden>Walk around the edge of the area. Your phone drops a point every few metres; tap <i>Corner here</i> at each sharp corner. Keep the screen on while you walk.</p>
   <div id="map" role="region" aria-label="Map showing where this record will be placed"></div>
+  <div class="walk" id="walkbox" hidden>
+    <div class="row"><button class="btn rec" type="button" id="walk-start">Start walking</button><button class="btn" type="button" id="walk-corner" disabled>Corner here</button><button class="btn" type="button" id="walk-undo" disabled>Undo point</button></div>
+    <div class="row"><button class="btn primary" type="button" id="walk-finish" disabled>Finish the area</button><button class="btn" type="button" id="walk-clear" disabled>Start again</button></div>
+    <span class="stat" id="walk-stat" aria-live="polite">Not started.</span>
+  </div>
   <div class="loc" aria-live="polite">
     <span class="chip" id="locchip"><i></i><span id="loctext">Finding your location…</span></span>
     <button class="btn" type="button" id="relocate">Use my location</button>
   </div>
+  <div class="offline" id="offlinebox" hidden><button class="btn" type="button" id="offline-btn">Save the map for offline use</button><span class="hint" id="offline-msg"></span></div>
   <p class="hint" id="lochint">The ± figure is how accurate your phone's GPS is. Under 10 m is good; wait a few seconds outdoors if it's higher.</p>
-  <div class="msg warn" id="outside" hidden>You're outside the mapped area. Records can only be saved inside the dashed square.</div>
+  <div class="msg warn" id="outside" hidden>You're outside the mapped area. Records can only be saved inside it.</div>
   </div>
 
   <fieldset>
@@ -215,7 +233,9 @@ main>fieldset>legend+*{clear:both}
   <section class="help" id="help" aria-labelledby="helptitle">
     <h2 id="helptitle">How to use this form</h2>
     <ol>
-      <li><b>Where is it?</b> Stand near the thing and let the pin settle. Drag the pin, or tap the map, if it isn't quite right. The dashed square is the area your group maps.</li>
+      <li><b>Where is it?</b> Stand near the thing and let the pin settle. Drag the pin, or tap the map, if it isn't quite right. The dashed box is the area your group works in most.</li>
+      <li><b>No signal where you're going?</b> Before you leave, with Wi‑Fi, tap <i>Save the map for offline use</i> under the map. It saves the aerial photos of the dashed box and the photo helper, so both work without signal. Records you save offline send when you're back in range.</li>
+      <li><b>An area rather than a spot?</b> Tap <i>Walk a boundary</i>, then <i>Start walking</i> and walk around its edge. Tap <i>Corner here</i> at each corner, <i>Pause</i> to stop recording while you go round an obstacle, and <i>Finish the area</i> when you're back near the start. It works without signal. Phone GPS is usually within 5–10 m, so small areas come out rough; check the shape before saving.</li>
       <li><b>What are you recording?</b> Pick the job: a sighting, a planting, a trap check and so on.</li>
       <li><b>Details.</b> Tap the options that fit. Long lists have a search box, and the names you use most move to the top. Anything not marked optional is needed.</li>
       <li><b>Photos</b> are optional unless you're not sure what something is. For plants, a close-up of a leaf or flower works best.</li>
@@ -276,11 +296,15 @@ function deviceLabel(){
 }
 
 // ---- Map
+// Aerial tiles: the latest year in the settings (the tile function adds the LINZ key).
+function latestYear(a){ const y=Object.keys((a&&a.linz_layers)||{}).map(Number).sort((p,q)=>p-q); return y.length?y[y.length-1]:2024 }
+function aerTiles(a){ return location.origin+'/linz/aerial/{z}/{x}/{y}.png?year='+latestYear(a) }
+let aerUrl=aerTiles(CA);   // the tile address the map was started with; replaced once the settings load
 const map = new maplibregl.Map({
   container:'map', center:CONFIG.centre, zoom:CA ? (CA.zoom||16.3) : 5, attributionControl:{compact:true},
   maxBounds:CONFIG.area ? [[CONFIG.area.west,CONFIG.area.south],[CONFIG.area.east,CONFIG.area.north]] : undefined,
   style:{version:8,sources:{
-    aer:{type:'raster',tiles:[location.origin+'/linz/aerial/{z}/{x}/{y}.png?year=2024'],tileSize:256,minzoom:12,maxzoom:21,attribution:'© Toitū Te Whenua LINZ, CC BY 4.0'}},
+    aer:{type:'raster',tiles:[aerTiles(CA)],tileSize:256,minzoom:10,maxzoom:21,attribution:'© Toitū Te Whenua LINZ, CC BY 4.0'}},
     layers:[{id:'bg',type:'background',paint:{'background-color':'#e9ece9'}},{id:'aer',type:'raster',source:'aer'}]}
 });
 map.addControl(new maplibregl.NavigationControl({showCompass:false}),'top-right');
@@ -304,7 +328,7 @@ let follow=true;        // pin follows GPS until the person moves it
 function circle(lon,lat,r){const pts=[],n=48,dLat=r/111320,dLon=r/(111320*Math.cos(lat*Math.PI/180));for(let i=0;i<=n;i++){const a=i/n*2*Math.PI;pts.push([lon+dLon*Math.cos(a),lat+dLat*Math.sin(a)])}return{type:'Feature',geometry:{type:'Polygon',coordinates:[pts]}}}
 function inArea(lon,lat){const a=CONFIG.area;if(!a)return false;return lon>=a.west&&lon<=a.east&&lat>=a.south&&lat<=a.north}
 function setPos(p,{fly=false}={}){
-  pos=p; marker.setLngLat([p.lon,p.lat]); if(!markerShown){marker.addTo(map);markerShown=true}
+  pos=p; marker.setLngLat([p.lon,p.lat]); if(!markerShown&&mode!=='walk'){marker.addTo(map);markerShown=true}
   if(fly) map.easeTo({center:[p.lon,p.lat],zoom:Math.max(map.getZoom(),17.5),duration:600});
   const src=map.getSource('acc'); if(src) src.setData(p.source==='gps'&&p.accuracy?circle(p.lon,p.lat,p.accuracy):{type:'FeatureCollection',features:[]});
   const chip=$('locchip'), t=$('loctext'); chip.className='chip';
@@ -314,7 +338,7 @@ function setPos(p,{fly=false}={}){
   $('outside').hidden=inArea(p.lon,p.lat);
 }
 marker.on('dragend',()=>{const l=marker.getLngLat(); follow=false; setPos({lon:l.lng,lat:l.lat,source:'moved',accuracy:null})});
-map.on('click',e=>{follow=false; setPos({lon:e.lngLat.lng,lat:e.lngLat.lat,source:'map',accuracy:null})});
+map.on('click',e=>{if(mode==='walk') return; follow=false; setPos({lon:e.lngLat.lng,lat:e.lngLat.lat,source:'map',accuracy:null})});
 function startGPS(){
   if(!('geolocation' in navigator)){ $('loctext').textContent='Location isn’t available on this device. Tap the map to place the record.'; return }
   navigator.geolocation.watchPosition(p=>{
@@ -322,12 +346,93 @@ function startGPS(){
     // keep the better of the last fix and this one, unless the last is more than 30 s old
     if(!fix||f.accuracy<=fix.accuracy||Date.now()-fix.time>30000) fix=f;
     if(follow) setPos({lon:fix.lon,lat:fix.lat,source:'gps',accuracy:fix.accuracy},{fly:!pos});
+    if(mode==='walk'&&walk.state==='walking'){ walkAdd(f,false); if(!map.getBounds().contains([f.lon,f.lat])) map.easeTo({center:[f.lon,f.lat],duration:400}); renderWalk() }
   },err=>{
     $('loctext').textContent = err.code===1 ? 'Location is turned off for this site. Tap the map to place the record.' : 'Can’t get a location fix yet. Tap the map to place the record.';
     $('locchip').className='chip bad';
   },{enableHighAccuracy:true,maximumAge:5000,timeout:30000});
 }
 $('relocate').addEventListener('click',()=>{follow=true; if(fix) setPos({lon:fix.lon,lat:fix.lat,source:'gps',accuracy:fix.accuracy},{fly:true}); else startGPS()});
+
+// ---- Walk a boundary: record an area by walking its edge with GPS. Kept on the phone (localStorage) until saved,
+// so a page reload or lost signal doesn't lose it. Points are kept every few metres when the fix is good enough.
+const WALK_KEY='nzml-walk', WALK_STEP_M=3, WALK_MAX_ACC_M=25, WALK_MAX_PTS=480;
+let mode='pin', walk={pts:[],state:'idle',started:null,acc:[]};   // state: idle | walking | paused | done
+try{ const w=JSON.parse(store.get(WALK_KEY,'null')); if(w&&Array.isArray(w.pts)) walk={...walk,...w,state:w.state==='walking'?'paused':w.state} }catch(e){}
+const mPerDeg=lat=>[111320*Math.cos(lat*Math.PI/180),110540];
+function distM(a,b){ const [kx,ky]=mPerDeg((a[1]+b[1])/2); return Math.hypot((a[0]-b[0])*kx,(a[1]-b[1])*ky) }
+function ringAreaM2(r){ if(r.length<3) return 0; const [kx,ky]=mPerDeg(r[0][1]); let s=0;
+  for(let i=0;i<r.length;i++){ const a=r[i], b=r[(i+1)%r.length]; s+=(a[0]*kx)*(b[1]*ky)-(b[0]*kx)*(a[1]*ky) } return Math.abs(s/2) }
+function perimM(r,closed){ let d=0; for(let i=1;i<r.length;i++) d+=distM(r[i-1],r[i]); if(closed&&r.length>2) d+=distM(r[r.length-1],r[0]); return d }
+// Douglas–Peucker, keeping corners the person marked
+function simplify(pts,tolM){ if(pts.length<=3) return pts.slice();
+  const keep=new Array(pts.length).fill(false); keep[0]=keep[pts.length-1]=true; pts.forEach((p,i)=>{ if(p[2]) keep[i]=true });
+  const [kx,ky]=mPerDeg(pts[0][1]); const xy=pts.map(p=>[p[0]*kx,p[1]*ky]);
+  const seg=(p,a,b)=>{ const dx=b[0]-a[0], dy=b[1]-a[1], L=dx*dx+dy*dy; let t=L?((p[0]-a[0])*dx+(p[1]-a[1])*dy)/L:0; t=Math.max(0,Math.min(1,t)); return Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dy) };
+  const stack=[[0,pts.length-1]];
+  while(stack.length){ const [i,j]=stack.pop(); let m=-1, md=0; for(let k=i+1;k<j;k++){ const d=seg(xy[k],xy[i],xy[j]); if(d>md){md=d;m=k} } if(m>0&&md>tolM){ keep[m]=true; stack.push([i,m],[m,j]) } }
+  return pts.filter((_,i)=>keep[i]) }
+function walkSave(){ store.set(WALK_KEY,JSON.stringify({pts:walk.pts,state:walk.state,started:walk.started,acc:walk.acc.slice(-500)})) }
+function walkRing(){ return walk.pts.map(p=>[p[0],p[1]]) }
+function walkData(){ const r=walkRing(), fs=[];
+  if(r.length>2) fs.push({type:'Feature',properties:{},geometry:{type:'Polygon',coordinates:[[...r,r[0]]]}});
+  if(r.length>1) fs.push({type:'Feature',properties:{k:'line'},geometry:{type:'LineString',coordinates:walk.state==='done'?[...r,r[0]]:r}});
+  walk.pts.forEach((p,i)=>fs.push({type:'Feature',properties:{k:'pt',corner:!!p[2],first:i===0},geometry:{type:'Point',coordinates:[p[0],p[1]]}}));
+  return {type:'FeatureCollection',features:fs} }
+function renderWalk(){
+  const src=map.getSource('walk'); if(src) src.setData(mode==='walk'?walkData():{type:'FeatureCollection',features:[]});
+  const st=walk.state, n=walk.pts.length, r=walkRing();
+  $('walk-start').textContent = st==='walking'?'Pause':st==='paused'?'Carry on walking':st==='done'?'Walking finished':'Start walking';
+  $('walk-start').disabled = st==='done'; $('walk-start').hidden = st==='done'; $('walk-corner').hidden = $('walk-undo').hidden = st==='done'; $('walk-finish').hidden = st==='done';
+  $('walk-corner').disabled = st!=='walking'; $('walk-undo').disabled = !n||st==='done';
+  $('walk-finish').disabled = n<3||st==='done'; $('walk-clear').disabled = !n;
+  const ha=ringAreaM2(r), back=n&&fix?distM([fix.lon,fix.lat],r[0]):null;
+  let t = !n ? (st==='walking'?'Walking: waiting for a good GPS fix…':'Not started.')
+    : `${n} point${n>1?'s':''} · ${Math.round(perimM(r,st==='done'))} m round`+(n>2?` · ${ha>=10000?(ha/10000).toFixed(2)+' ha':Math.round(ha)+' m²'}`:'');
+  if(st==='paused') t+=' · paused'; if(st==='walking'&&back!=null&&n>5) t+=` · ${Math.round(back)} m from the start`;
+  if(st==='done') t+=' · finished. Fill in the details below and save.';
+  if(n>=WALK_MAX_PTS) t+=' · point limit reached; finish the area.';
+  $('walk-stat').textContent=t }
+function walkAdd(f,corner){
+  if(walk.state!=='walking'||!f) return;
+  if(!inArea(f.lon,f.lat)) { $('walk-stat').textContent='You are outside the mapped area; points are not being recorded.'; return }
+  if(!corner&&f.accuracy>WALK_MAX_ACC_M) return;
+  const last=walk.pts[walk.pts.length-1], p=[+f.lon.toFixed(7),+f.lat.toFixed(7)];
+  if(!corner&&last&&distM(last,p)<Math.max(WALK_STEP_M,Math.min(f.accuracy*0.5,8))) return;
+  if(corner&&last&&distM(last,p)<1){ last[2]=1 } else { if(walk.pts.length>=WALK_MAX_PTS) return; walk.pts.push(corner?[...p,1]:p); walk.acc.push(Math.round(f.accuracy)) }
+  walkSave(); renderWalk() }
+let wakeLock=null;
+async function keepAwake(on){ try{ if(on&&'wakeLock' in navigator&&!wakeLock){ wakeLock=await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release',()=>wakeLock=null) } else if(!on&&wakeLock){ await wakeLock.release(); wakeLock=null } }catch(e){} }
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&walk.state==='walking') keepAwake(true) });
+function setMode(m){ mode=m; $('mode-pin').setAttribute('aria-pressed',m==='pin'); $('mode-walk').setAttribute('aria-pressed',m==='walk');
+  $('pinhint').hidden=m!=='pin'; $('walkhint').hidden=m!=='walk'; $('walkbox').hidden=m!=='walk';
+  if(m==='walk'){ if(markerShown){ marker.remove(); markerShown=false } } else if(pos){ marker.setLngLat([pos.lon,pos.lat]).addTo(map); markerShown=true }
+  if(m==='pin'&&walk.state==='walking'){ walk.state='paused'; walkSave(); keepAwake(false) }
+  store.set('nzml-mode',m); renderWalk() }
+$('mode-pin').addEventListener('click',()=>setMode('pin'));
+$('mode-walk').addEventListener('click',()=>setMode('walk'));
+$('walk-start').addEventListener('click',()=>{
+  if(walk.state==='walking'){ walk.state='paused'; keepAwake(false) }
+  else { if(!walk.pts.length) walk.started=new Date().toISOString(); walk.state='walking'; follow=true; keepAwake(true);
+    if(fix&&Date.now()-fix.time<15000) walkAdd(fix,!walk.pts.length); if(fix) map.easeTo({center:[fix.lon,fix.lat],zoom:Math.max(map.getZoom(),18),duration:500}) }
+  walkSave(); renderWalk() });
+$('walk-corner').addEventListener('click',()=>{ if(!fix||Date.now()-fix.time>15000){ $('walk-stat').textContent='No recent GPS fix; wait a moment and try again.'; return } walkAdd(fix,true) });
+$('walk-undo').addEventListener('click',()=>{ walk.pts.pop(); walk.acc.pop(); walkSave(); renderWalk() });
+$('walk-finish').addEventListener('click',()=>{ if(walk.pts.length<3) return;
+  if(ringAreaM2(walkRing())<5){ $('walk-stat').textContent='That shape is too small or too thin to be an area; walk a bit further round.'; return }
+  walk.pts=simplify(walk.pts,1.0);
+  // walking back to the start closes the shape: drop a last point that sits on the first
+  if(walk.pts.length>3&&distM(walk.pts[walk.pts.length-1],walk.pts[0])<4) walk.pts.pop();
+  walk.state='done'; keepAwake(false); walkSave(); renderWalk();
+  const r=walkRing(), xs=r.map(p=>p[0]), ys=r.map(p=>p[1]); map.fitBounds([[Math.min(...xs),Math.min(...ys)],[Math.max(...xs),Math.max(...ys)]],{padding:40,maxZoom:19,duration:500}) });
+$('walk-clear').addEventListener('click',()=>{ if(walk.pts.length>3&&!confirmClear()) return; walk={pts:[],state:'idle',started:null,acc:[]}; keepAwake(false); walkSave(); renderWalk() });
+function confirmClear(){ const b=$('walk-clear'); if(b.dataset.sure) { delete b.dataset.sure; b.textContent='Start again'; return true } b.dataset.sure='1'; b.textContent='Tap again to clear'; setTimeout(()=>{ delete b.dataset.sure; b.textContent='Start again' },4000); return false }
+map.on('load',()=>{
+  map.addSource('walk',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+  map.addLayer({id:'walk-fill',type:'fill',source:'walk',filter:['==',['geometry-type'],'Polygon'],paint:{'fill-color':'#f2c14e','fill-opacity':.25}});
+  map.addLayer({id:'walk-line',type:'line',source:'walk',filter:['==',['get','k'],'line'],paint:{'line-color':'#f2c14e','line-width':3}});
+  map.addLayer({id:'walk-pt',type:'circle',source:'walk',filter:['==',['get','k'],'pt'],paint:{'circle-radius':['case',['get','corner'],6,['get','first'],6,3],'circle-color':['case',['get','first'],'#2c7a4b','#f2c14e'],'circle-stroke-color':'#1d2a24','circle-stroke-width':1.5}});
+  renderWalk() });
 
 // ---- Categories
 let cat=store.get('nzml-last-cat',CONFIG.categories[0].id);
@@ -343,12 +448,13 @@ const recent=l=>{try{return JSON.parse(store.get(recentKey(l),'[]'))}catch(e){re
 function pushRecent(l,id){ if(!id||id==='other') return; const r=recent(l).filter(x=>x!==id); r.unshift(id); store.set(recentKey(l),JSON.stringify(r.slice(0,6))) }
 function listItems(name){ return (SETTINGS&&SETTINGS.lists&&SETTINGS.lists[name])||[] }
 function itemLabel(it){ return it.common||it.id }
+function phoneTasks(){ return ((SETTINGS&&SETTINGS.tasks)||[]).filter(t=>!t.desktop_only) }
 function renderTasks(){
-  const ts=(SETTINGS&&SETTINGS.tasks)||[];
+  const ts=phoneTasks();
   $('tasks').innerHTML=ts.map(t=>`<button type="button" data-t="${t.id}" aria-pressed="${task&&t.id===task.id}"><b>${esc(t.label)}</b><span>${esc(t.hint||'')}</span></button>`).join('');
 }
 function setTask(id){
-  const ts=(SETTINGS&&SETTINGS.tasks)||[]; task=ts.find(t=>t.id===id)||ts[0]||null; if(!task) return;
+  const ts=phoneTasks(); task=ts.find(t=>t.id===id)||ts[0]||null; if(!task) return;
   store.set('nzml-last-task',task.id); values={}; if(typeof SUG!=='undefined') SUG={};
   task.fields.forEach(fd=>{ if(fd.default!==undefined) values[fd.id]=fd.default });
   $('catbox').hidden=!!task.category;
@@ -481,12 +587,43 @@ function buildTitle(){
 }
 function updateTitlePreview(){ const t=buildTitle(); $('titleprev').textContent=t?`Will be saved as “${t}”`:'' }
 
+// ---- Offline: save aerial tiles for the focus block (or the square) and the photo helper, for use without signal.
+// Tiles go in their own cache, which the service worker checks before the network and never trims.
+const OFFLINE_CACHE='nzml-offline-v1';
+function offlineArea(){ const a=SETTINGS&&SETTINGS.area; if(!a) return null;
+  const b=a.focus&&a.focus.bounds?a.focus.bounds:(a.square?{west:a.square[0][0],south:a.square[0][1],east:a.square[1][0],north:a.square[1][1]}:null);
+  return b?{b,maxz:Math.min(18,(a.offline&&a.offline.max_zoom)||17),url:aerTiles(a),year:latestYear(a)}:null }
+function offlineTiles(o){ const out=[];
+  for(let z=12;z<=o.maxz;z++){ const n=2**z, X=l=>Math.floor((l+180)/360*n), Y=l=>Math.floor((1-Math.asinh(Math.tan(l*Math.PI/180))/Math.PI)/2*n);
+    for(let x=X(o.b.west);x<=X(o.b.east);x++) for(let y=Y(o.b.north);y<=Y(o.b.south);y++) out.push(o.url.replace('{z}',z).replace('{x}',x).replace('{y}',y)) }
+  return out }
+function renderOffline(){ const o=offlineArea(); if(!o||!('caches' in window)) return; $('offlinebox').hidden=false;
+  const done=JSON.parse(store.get('nzml-offline','null')||'null');
+  const n=offlineTiles(o).length;
+  $('offline-msg').textContent= done&&done.url===o.url ? `Saved ${new Date(done.at).toLocaleDateString('en-NZ',{day:'numeric',month:'short'})}: ${done.n} map tiles${done.helper?' and the photo helper':''}.` : `About ${n.toLocaleString('en-NZ')} map tiles (roughly ${Math.round(n*0.06)} MB) plus the photo helper. Use Wi‑Fi.` }
+$('offline-btn').addEventListener('click',async()=>{
+  const o=offlineArea(); if(!o) return; if(!navigator.onLine){ $('offline-msg').textContent='Connect to the internet first.'; return }
+  const btn=$('offline-btn'); btn.disabled=true; const list=offlineTiles(o); const c=await caches.open(OFFLINE_CACHE);
+  let done=0, failed=0, i=0;
+  const work=async()=>{ while(i<list.length){ const u=list[i++];
+      try{ if(!(await c.match(u))){ const r=await fetch(u); if(r.ok) await c.put(u,r); else failed++ } }catch(e){ failed++ }
+      done++; if(done%20===0||done===list.length) $('offline-msg').textContent=`Map tiles: ${done.toLocaleString('en-NZ')} of ${list.length.toLocaleString('en-NZ')}${failed?` (${failed} failed)`:''}…` } };
+  await Promise.all(Array.from({length:6},work));
+  let helper=false;
+  if(window.NZID&&idOn()){ try{ await NZID.load((f,t)=>{ $('offline-msg').textContent='Photo helper: '+t }); helper=true }catch(e){} }
+  store.set('nzml-offline',JSON.stringify({at:Date.now(),n:list.length-failed,url:o.url,helper}));
+  btn.disabled=false; btn.textContent='Update the offline map'; renderOffline();
+  if(failed) $('offline-msg').textContent+=` ${failed} tiles didn't download; tap again to retry.`;
+});
+
 async function loadSettings(){
   try{ const r=await fetch('/config/site.json',{cache:'no-cache'}); if(r.ok){ SETTINGS=await r.json(); store.set('nzml-settings',JSON.stringify(SETTINGS)) } }catch(e){}
   if(!SETTINGS){ try{ SETTINGS=JSON.parse(store.get('nzml-settings','null')) }catch(e){} }
   if(!SETTINGS){ $('fields').innerHTML='<p class="msg err">The organisation’s settings couldn’t be loaded. Connect to the internet once and reload this page.</p>'; return }
   const a=SETTINGS.area; if(a&&a.bounds){ const first=!CONFIG.area; CONFIG.area=a.bounds; CONFIG.square=a.square; CONFIG.centre=a.centre;
     map.setMaxBounds([[a.bounds.west,a.bounds.south],[a.bounds.east,a.bounds.north]]); if(!pos||first) map.jumpTo({center:a.centre,zoom:a.zoom||16.3});
+    const setAer=()=>{ const src=map.getSource('aer'); if(src&&src.setTiles&&aerUrl!==aerTiles(a)){ aerUrl=aerTiles(a); src.setTiles([aerUrl]) } }; map.loaded()?setAer():map.once('load',setAer);
+    renderOffline();
     const upd=()=>map.getSource('sq')&&map.getSource('sq').setData(squareData()); map.loaded()?upd():map.once('load',upd);
     if(!pos) marker.setLngLat(a.centre) }
   if(SETTINGS.categories) { CONFIG.categories=SETTINGS.categories.map(c=>({id:c.id,label:c.label,color:c.colour})); renderCats() }
@@ -597,8 +734,10 @@ function flash(t,kind=''){const f=$('flash'); f.textContent=t; f.className='msg'
 $('save').addEventListener('click',async()=>{
   const by=$('by').value.trim(), code=$('code').value.trim(), title=buildTitle();
   if(!by||!code){ $('settings').open=true; $(by?'code':'by').focus(); flash('Add your name and the editing code first.','err'); return }
-  if(!pos){ flash('Place the record on the map first: wait for your location or tap the map.','err'); return }
-  if(!inArea(pos.lon,pos.lat)){ flash('That spot is outside the mapped area.','err'); return }
+  const walked=mode==='walk';
+  if(walked&&walk.state!=='done'){ flash(walk.pts.length>2?'Tap “Finish the area” first.':'Walk round the area first, or switch to “Pin a spot”.','err'); return }
+  if(!walked&&!pos){ flash('Place the record on the map first: wait for your location or tap the map.','err'); return }
+  if(!walked&&!inArea(pos.lon,pos.lat)){ flash('That spot is outside the mapped area.','err'); return }
   if(!task){ flash('Choose what you’re recording first.','err'); return }
   const missing=task.fields.find(fd=>fd.required&&(values[fd.id]===undefined||values[fd.id]===''||(fd.type==='list'&&!(values[fd.id]&&values[fd.id].id))));
   if(missing){ flash(`Choose or fill in “${missing.label}”.`,'err'); return }
@@ -606,9 +745,13 @@ $('save').addEventListener('click',async()=>{
   if(!title){ flash('Give it a short title.','err'); return }
   const fieldsOut={}; task.fields.forEach(fd=>{ const v=values[fd.id]; if(v===undefined||v==='') return; fieldsOut[fd.id]=fd.type==='list'?{id:v.id,other:v.other||'',sci:v.sci||'',photo:!!v.photo,confidence:fd.confidence===false?null:(v.confidence||'sure')}:v });
   store.set('map-by',by); store.set('map-edit-code',code);
-  const feature={type:'Feature',geometry:{type:'Point',coordinates:[+pos.lon.toFixed(6),+pos.lat.toFixed(6)]},
+  const ring=walked?walkRing().map(p=>[+p[0].toFixed(7),+p[1].toFixed(7)]):null;
+  const medAcc=a=>{ const s=[...a].sort((x,y)=>x-y); return s.length?s[Math.floor(s.length/2)]:null };
+  const feature={type:'Feature',geometry:walked?{type:'Polygon',coordinates:[[...ring,ring[0]]]}:{type:'Point',coordinates:[+pos.lon.toFixed(6),+pos.lat.toFixed(6)]},
     properties:{title,cat:task.category||cat,note:$('note').value.trim(),by,task:task.id,fields:fieldsOut,
-      meta:{accuracy_m:pos.source==='gps'?Math.round(pos.accuracy*10)/10:null,position:pos.source,captured:new Date().toISOString(),
+      meta:walked?{accuracy_m:medAcc(walk.acc),position:'gps',captured:new Date().toISOString(),device:deviceLabel(),via:'phone',ai:aiMeta(),
+          walk:{points:ring.length,corners:walk.pts.filter(p=>p[2]).length,perimeter_m:Math.round(perimM(ring,true)),area_m2:Math.round(ringAreaM2(ring)),started:walk.started}}
+        :{accuracy_m:pos.source==='gps'?Math.round(pos.accuracy*10)/10:null,position:pos.source,captured:new Date().toISOString(),
         altitude_m:pos.source==='gps'&&fix&&fix.altitude!=null?Math.round(fix.altitude):null,
         heading:pos.source==='gps'&&fix&&fix.heading!=null&&!isNaN(fix.heading)?Math.round(fix.heading):null,
         device:deviceLabel(),via:'phone',ai:aiMeta()}}};
@@ -619,12 +762,14 @@ $('save').addEventListener('click',async()=>{
   task.fields.forEach(fd=>{ if(fd.type==='list'&&values[fd.id]) pushRecent(fd.list,values[fd.id].id) });
   SUG={}; setTask(task.id); $('note').value=''; photos.forEach(p=>URL.revokeObjectURL(p.url)); photos=[]; renderPhotos();
   follow=true; if(fix) setPos({lon:fix.lon,lat:fix.lat,source:'gps',accuracy:fix.accuracy});
+  if(walked){ walk={pts:[],state:'idle',started:null,acc:[]}; walkSave(); renderWalk() }
   flash(navigator.onLine?'Saved. Sending now…':'Saved on this phone. It will send when you have signal.');
   window.scrollTo({top:0,behavior:'smooth'});
   await renderQueue(); sendQueue();
 });
 
 startGPS(); renderQueue(); sendQueue(); loadSettings();
+setMode(store.get('nzml-mode','pin')==='walk'||walk.pts.length?'walk':'pin');
 if('serviceWorker' in navigator) navigator.serviceWorker.register('/add/sw.js',{scope:'/add/'}).catch(()=>{});
 </script>
 </body>
